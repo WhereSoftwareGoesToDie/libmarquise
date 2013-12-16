@@ -1,6 +1,7 @@
 #include "anchor_stats.h"
+#include "structs.h"
 #include "../config.h"
-
+#include "defer.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -9,24 +10,14 @@
 #include <zmq.h>
 #include <stdio.h>
 #include <glib.h>
+#include <sys/mman.h>
+
 
 #define fail_if( assertion, action, ... ) do {                           \
         if ( assertion ){                                                \
                 syslog( LOG_ERR, "libanchor_stats error:" __VA_ARGS__ ); \
                 { action };                                              \
         } } while( 0 )
-
-typedef struct {
-        void *context;
-        void *queue_connection;
-        void *upstream_connection;
-        double poll_period;
-} queue_args;
-
-typedef struct {
-        char *data;
-        size_t length;
-} data_burst;
 
 static void *queue_loop ( void *queue_socket );
 
@@ -81,10 +72,19 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         // shiny PULL inproc socket, and the broker that the user would like to
         // connect to.
         queue_args *args          = malloc( sizeof( queue_args ) );
+        char *template = "/tmp/as_defer_file_test_XXXXXX";
+        int fd = mkstemp( template );
+        ctx_fail_if( fd == -1
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "mkstemp: '%s'"
+                   , strerror( errno ) );
+
         args->context             = context;
         args->queue_connection    = queue_connection;
         args->upstream_connection = upstream_connection;
         args->poll_period         = poll_period;
+        args->defer_stream        = fdopen( fd, "w+" );
 
         pthread_t queue_pthread;
         int err = pthread_create( &queue_pthread
@@ -175,13 +175,16 @@ static void *queue_loop( void *args_ptr ) {
                         memcpy( zmq_msg_data( &message )
                               , burst->data
                               , burst->length );
-                        fail_if( zmq_msg_send( &message
-                                             , args->upstream_connection
-                                             , 0 ) == -1
-                               ,
-                               , "Failed to transmit ZMQ messsage: '%s'"
-                               , strerror( errno ) );
-
+                        int err = zmq_msg_send( &message
+                                              , args->upstream_connection
+                                              , ZMQ_DONTWAIT );
+                        if( err == -1 ) {
+                                if( errno == EAGAIN ){
+                                        as_defer_to_file( args->defer_stream, burst );
+                                }
+                        }
+                        // if errno == eagain defer
+                        // try to send deferred
                 }
 
         }
@@ -190,9 +193,8 @@ static void *queue_loop( void *args_ptr ) {
         // Will block untill we get all of our deferred messages out.
         zmq_close( args->upstream_connection );
         free(args);
-	return NULL;
+        return NULL;
 }
-
 void as_consumer_shutdown( as_consumer consumer ) {
         zmq_ctx_destroy( consumer );
 }

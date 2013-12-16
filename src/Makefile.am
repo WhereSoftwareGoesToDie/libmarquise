@@ -2,9 +2,10 @@ AM_CFLAGS  = -pthread -Wall $(DEPS_CFLAGS)
 AM_LDFLAGS = $(DEPS_LIBS) $(PROTOBUF_C_LIBS)
 
 lib_LTLIBRARIES = libanchor_stats.la
-libanchor_stats_la_SOURCES = anchor_stats.c \
-	protobuf/DataFrame.pb-c.c \
-	protobuf/DataBurst.pb-c.c
+libanchor_stats_la_SOURCES =    anchor_stats.c \
+				defer.c \
+				protobuf/DataFrame.pb-c.c \
+				protobuf/DataBurst.pb-c.c
 
 include_HEADERS = anchor_stats.h
 
@@ -17,3 +18,8 @@ dist_noinst_DATA= protobuf/DataBurst.proto protobuf/DataFrame.proto
 	    $(PROTOC_C) --proto_path=$(srcdir)/protobuf --c_out=$(builddir)/protobuf $^
 
 MOSTLYCLEANFILES = protobuf/*.c protobuf/*.h protobuf/*.o protobuf/*.lo
+
+TESTS=$(check_PROGRAMS)
+check_PROGRAMS=defer_file_test
+defer_file_test_SOURCES= tests/defer_file_test.c
+defer_file_test_LDADD = libanchor_stats.la
