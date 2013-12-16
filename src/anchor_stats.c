@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include <sys/mman.h>
-#include <lz4.h>
+#include "lz4/lz4.h"
 #include <string.h>
 
 

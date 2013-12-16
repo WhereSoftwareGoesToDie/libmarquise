@@ -6,7 +6,8 @@ libanchor_stats_la_SOURCES =    anchor_stats.c \
 				frame.c \
 				defer.c \
 				protobuf/DataFrame.pb-c.c \
-				protobuf/DataBurst.pb-c.c
+				protobuf/DataBurst.pb-c.c \
+				lz4/lz4.c
 include_HEADERS = anchor_stats.h frame.h
 
 bin_PROGRAMS = send_anchor_stat
@@ -23,3 +24,4 @@ TESTS=$(check_PROGRAMS)
 check_PROGRAMS=defer_file_test
 defer_file_test_SOURCES= tests/defer_file_test.c
 defer_file_test_LDADD = libanchor_stats.la
+

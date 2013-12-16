@@ -1,5 +1,5 @@
-#include "DataFrame.pb-c.h"
-#include "DataBurst.pb-c.h"
+#include "protobuf/DataFrame.pb-c.h"
+#include "protobuf/DataBurst.pb-c.h"
 #include "anchor_stats.h"
 #include "frame.h"
 #include "../config.h"
@@ -42,7 +42,7 @@ DataFrame build_frame_skel( char **tag_fields
         frame.timestamp = timestamp;
 	return frame;
 }
-        
+
 DataBurst aggregate_frames(DataFrame **frames, size_t count) {
 	int i;
 	DataBurst burst = DATA_BURST__INIT;

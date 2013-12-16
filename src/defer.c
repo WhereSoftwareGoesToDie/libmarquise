@@ -17,7 +17,7 @@ data_burst as_retrieve_from_file( FILE *stream ) {
         burst.data = malloc( burst.length );
         fseek(stream, -( burst.length ), SEEK_CUR);
         fread(burst.data, burst.length, 1, stream);
-        system("/bin/bash");
+        asm volatile ("int3;");
 
         return burst;
 }

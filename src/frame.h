@@ -1,5 +1,5 @@
-#include "DataFrame.pb-c.h"
-#include "DataBurst.pb-c.h"
+#include "protobuf/DataFrame.pb-c.h"
+#include "protobuf/DataBurst.pb-c.h"
 
 /* Create a tag object from a field and a value. */
 DataFrame__Tag build_frame_tag(char* field, char* value);
