@@ -32,4 +32,6 @@ src/protobuf/.deps/
 src/protobuf/.dirstamp
 src/protobuf/DataFrame.pb-c.c
 src/protobuf/DataFrame.pb-c.h
+src/protobuf/DataBurst.pb-c.c
+src/protobuf/DataBurst.pb-c.h
 
