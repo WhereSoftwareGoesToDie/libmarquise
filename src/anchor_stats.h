@@ -3,6 +3,12 @@
 typedef void *as_consumer;
 typedef void *as_connection;
 
+#define fail_if( assertion, action, ... ) do {                           \
+        if ( assertion ){                                                \
+                syslog( LOG_ERR, "libanchor_stats error:" __VA_ARGS__ ); \
+                { action };                                              \
+        } } while( 0 )
+
 // Attempt to start a consumer with the system's local configuration. Returns
 // NULL on failure and sets errno.
 //
