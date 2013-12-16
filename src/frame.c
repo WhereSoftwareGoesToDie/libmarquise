@@ -36,12 +36,19 @@ DataFrame__Tag* build_frame_tag(char* field, char* value) {
         return tag;
 }
 
-DataFrame* build_frame( char **tag_fields
-                      , char **tag_values
-                      , int tag_count
-                      , uint64_t timestamp
-                      , DataFrame__Type payload) {
+DataFrame* build_frame_skel( char **tag_fields
+                           , char **tag_values
+                           , int tag_count
+                           , uint64_t timestamp
+                           , DataFrame__Type payload) {
+	int i;
         DataFrame *frame = malloc(sizeof(DataFrame));
+	frame->n_source = tag_count;
+	frame->source = malloc(sizeof(DataFrame__Tag) * tag_count);
+	for (i = 0; i < tag_count; ++i) {
+		frame->source[i] = build_frame_tag(tag_fields[i], tag_values[i]);
+	}
+	frame->payload = payload;
         frame->timestamp = timestamp;
 	return frame;
 }
