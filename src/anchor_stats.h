@@ -33,7 +33,7 @@ int as_send_text( as_connection connection
            , int tag_count
            , char *data
            // nanoseconds
-           , unsigned long long timestamp);
+           , uint64_t timestamp);
 
 // Type: NUMBER
 int as_send_int( as_connection connection
@@ -42,7 +42,7 @@ int as_send_int( as_connection connection
            , int tag_count
            , int data
            // nanoseconds
-           , unsigned long long timestamp);
+           , uint64_t timestamp);
 
 // Type: REAL
 int as_send_real( as_connection connection
@@ -51,7 +51,7 @@ int as_send_real( as_connection connection
            , int tag_count
            , double data
            // nanoseconds
-           , unsigned long long timestamp);
+           , uint64_t timestamp);
 
 // Type: EMPTY
 int as_send_counter( as_connection connection
@@ -59,7 +59,7 @@ int as_send_counter( as_connection connection
            , char **tag_values
            , int tag_count
            // nanoseconds
-           , unsigned long long timestamp);
+           , uint64_t timestamp);
 
 // Type: BINARY
 int as_send_binary( as_connection connection
@@ -68,4 +68,4 @@ int as_send_binary( as_connection connection
            , int tag_count
            , char *data
            // nanoseconds
-           , unsigned long long timestamp);
+           , uint64_t timestamp);
