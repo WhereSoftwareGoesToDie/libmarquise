@@ -8,7 +8,7 @@ int main () {
 
         int i;
         for(i = 0; i < 10000; i++) {
-                as_send( connection, "key", "data", 24, 0 );
+                //as_send( connection, "key", "data", 24, 0 );
         }
         as_close( connection );
         as_consumer_shutdown( consumer );

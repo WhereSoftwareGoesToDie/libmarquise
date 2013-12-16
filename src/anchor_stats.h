@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 typedef void *as_consumer;
 typedef void *as_connection;
 

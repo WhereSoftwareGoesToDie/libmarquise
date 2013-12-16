@@ -141,6 +141,7 @@ static void *queue_loop( void *args_ptr ) {
 
         zmq_close( args->connection );
         free(args);
+	return NULL;
 }
 
 static void send_upstream( GSList *messages
