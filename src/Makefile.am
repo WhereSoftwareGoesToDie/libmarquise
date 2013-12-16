@@ -1,4 +1,4 @@
-AM_CFLAGS  = -pthread -Wall
+AM_CFLAGS  = -pthread -Wall `pkg-config --cflags --libs glib-2.0`
 AM_LDFLAGS = -lzmq
 lib_LTLIBRARIES = libanchor_stats.la
 libanchor_stats_la_SOURCES = anchor_stats.c

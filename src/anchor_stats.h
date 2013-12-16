@@ -4,9 +4,13 @@ typedef void *as_connection;
 // Attempt to start a consumer with the system's local configuration. Returns
 // NULL on failure and sets errno.
 //
+// broker is to be specified as a zmq URI
+//
+// poll_period is the number of seconds, e.g. 1.3
+//
 // Failure almost certainly means catastrophic failure, do not retry on
 // failure, check syslog.
-as_consumer as_consumer_new( char *broker, unsigned int poll_period );
+as_consumer as_consumer_new( char *broker, double poll_period );
 
 // Cleanup a consumer's resources. Ensure that you run as_close on any
 // open connections first.
