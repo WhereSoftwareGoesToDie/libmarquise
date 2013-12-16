@@ -3,11 +3,11 @@ AM_LDFLAGS = $(DEPS_LIBS) $(PROTOBUF_C_LIBS)
 
 lib_LTLIBRARIES = libanchor_stats.la
 libanchor_stats_la_SOURCES =    anchor_stats.c \
+				frame.c \
 				defer.c \
 				protobuf/DataFrame.pb-c.c \
 				protobuf/DataBurst.pb-c.c
-
-include_HEADERS = anchor_stats.h
+include_HEADERS = anchor_stats.h frame.h
 
 bin_PROGRAMS = send_anchor_stat
 send_anchor_stat_SOURCES = send_anchor_stat.c
