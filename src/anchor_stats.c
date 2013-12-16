@@ -19,21 +19,25 @@
 
 typedef struct {
         void *context;
-        void *connection;
-        void *broker;
+        void *queue_connection;
+        void *upstream_connection;
         double poll_period;
 } queue_args;
 
+typedef struct {
+        char *data;
+        size_t length;
+} data_burst;
+
 static void *queue_loop ( void *queue_socket );
 
-static void send_upstream( GSList *messages
-                          , void *user_context
-                          , char *broker );
+static void send_upstream( void *upstream_connection
+                         , data_burst *burst );
 
-#define ctx_fail_if( assertion, ... ) do {                                     \
-        fail_if( assertion                                                     \
-               , zmq_close(connection); zmq_ctx_destroy(context); return NULL; \
-               , "as_consumer_new: " __VA_ARGS__ );                            \
+#define ctx_fail_if( assertion, action, ... ) do {                  \
+        fail_if( assertion                                          \
+               , zmq_ctx_destroy(context); { action }; return NULL; \
+               , "as_consumer_new: " __VA_ARGS__ );                 \
         } while( 0 )
 
 as_consumer as_consumer_new( char *broker, double poll_period ) {
@@ -44,35 +48,64 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         fail_if( !context, , "zmq_ctx_new failed, this is very confusing." );
 
         // Set up the queuing PULL socket.
-        void *connection = zmq_socket( context, ZMQ_PULL );
-        ctx_fail_if( !connection, "zmq_socket: '%s'", strerror( errno ) );
+        void *queue_connection = zmq_socket( context, ZMQ_PULL );
+        ctx_fail_if( !queue_connection
+                   , zmq_close( queue_connection );
+                   , "zmq_socket: '%s'"
+                   , strerror( errno ) );
 
-        ctx_fail_if( zmq_bind( connection, "inproc://queue" )
+        ctx_fail_if( zmq_bind( queue_connection, "inproc://queue" )
+                   , zmq_close( queue_connection );
                    , "zmq_bind: '%s'"
+                   , strerror( errno ) );
+
+        // Set up the upstream PUSH socket.
+        void *upstream_connection = zmq_socket( context, ZMQ_PUSH );
+        ctx_fail_if( !queue_connection
+                   , zmq_close( queue_connection );
+                   , "zmq_socket: '%s'"
+                   , strerror( errno ) );
+
+        ctx_fail_if( zmq_connect( queue_connection, broker )
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "zmq_connect: '%s'"
+                   , strerror( errno ) );
+
+        // Give us 24 hours of backlog  at a poll period of 1
+        int hwm = 60 * 60 * 24;
+
+        ctx_fail_if( zmq_setsockopt( upstream_connection, ZMQ_SNDHWM, &hwm, sizeof( hwm ) )
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "zmq_setsockopt ZMQ_HWM: '%s'"
                    , strerror( errno ) );
 
         // Our new thread gets it's own copy of the zmq context, a brand new
         // shiny PULL inproc socket, and the broker that the user would like to
         // connect to.
-        queue_args *args  = malloc( sizeof( queue_args ) );
-        args->context     = context;
-        args->connection  = connection;
-        args->poll_period = poll_period;
-
-        size_t broker_size = strlen( broker + 1);
-        args->broker = malloc( broker_size );
-        memcpy( args->broker, broker, broker_size );
-
+        queue_args *args          = malloc( sizeof( queue_args ) );
+        args->context             = context;
+        args->queue_connection    = queue_connection;
+        args->upstream_connection = upstream_connection;
+        args->poll_period         = poll_period;
 
         pthread_t queue_pthread;
         int err = pthread_create( &queue_pthread
                                 , NULL
                                 , queue_loop
                                 , args );
-        ctx_fail_if( err, "pthread_create returned: '%d'", err );
+        ctx_fail_if( err
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "pthread_create returned: '%d'", err );
 
         err = pthread_detach( queue_pthread );
-        ctx_fail_if( err, "pthread_detach returned: '%d'", err );
+        ctx_fail_if( err
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "pthread_detach returned: '%d'", err );
+
 
         // Ready to go as far as we're concerned, return the context.
         return context;
@@ -90,7 +123,7 @@ static void *queue_loop( void *args_ptr ) {
         // 100ms late, as opposed to waiting for an event to
         // trigger the next flush.
         zmq_pollitem_t items [] = {
-                { args->connection
+                { args->queue_connection
                 , 0
                 , ZMQ_POLLIN
                 , 0 }
@@ -117,7 +150,7 @@ static void *queue_loop( void *args_ptr ) {
                         zmq_msg_init( &message );
 
                         fail_if( zmq_msg_recv( &message
-                                             , args->connection
+                                             , args->queue_connection
                                              , 0 ) == -1
                                ,
                                , "queue_loop: zmq_msg_recv: '%s'"
@@ -129,48 +162,39 @@ static void *queue_loop( void *args_ptr ) {
 
                 if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
                         g_timer_reset(timer);
+                        // Time to flush!
 
-                        // Our queue is ready to flush, send_upstream will
-                        // handle cleanup of the list and the messages
-                        // themselves.
-                        send_upstream( queue, args->context, args->broker );
+                        // TODO: Serialize, compress and encrypt queue into a
+                        // burst, then free it.
+                        data_burst *burst = malloc( sizeof( data_burst ) );
+                        burst->data = malloc( 5 );
+                        strcpy( burst->data, "hai" );
+                        burst->length = 4;
+
+                        // Simulating freeing(). This is really fast.
                         queue = NULL;
+
+                        zmq_msg_t message;
+                        zmq_msg_init_size( &message, burst->length );
+                        memcpy( zmq_msg_data( &message )
+                              , burst->data
+                              , burst->length );
+                        fail_if( zmq_msg_send( &message
+                                             , args->upstream_connection
+                                             , 0 ) == -1
+                               ,
+                               , "Failed to transmit ZMQ messsage: '%s'"
+                               , strerror( errno ) );
+
                 }
 
         }
 
-        zmq_close( args->connection );
+        zmq_close( args->queue_connection );
+        // Will block untill we get all of our deferred messages out.
+        zmq_close( args->upstream_connection );
         free(args);
 }
-
-static void send_upstream( GSList *messages
-                          , void *user_context
-                          , char *broker ) {
-        // Yes, there's a lot of state here, what do you expect when you're
-        // trying to keep track of deferred messages.
-        static void   *upstream;
-        static void   *context;
-        static void   *dummy_socket;
-        static GSList *deferred;
-
-        // We want our own, separate context so that we can send the last of
-        // the messages out when the user shuts us down.
-        if( !dummy_socket ) dummy_socket = zmq_socket( user_context, ZMQ_PUSH );
-
-        // We block the user's call on as_consumer_shutdown by holding open a
-        // dummy socket whenever there are deferred messages.
-        if( !context ) context = zmq_ctx_new();
-
-        upstream = zmq_socket( context, ZMQ_PUSH );
-        fail_if( !upstream
-               ,
-               , "send_upstream: zmq_socket: '%s'"
-               , strerror( errno ) );
-        fail_if( zmq_connect( upstream, broker )
-               ,
-               , "send_upstream: zmq_connect: '%s'"
-               , strerror( errno ) );
-};
 
 void as_consumer_shutdown( as_consumer consumer ) {
         zmq_ctx_destroy( consumer );
@@ -202,7 +226,7 @@ int as_send( as_connection connection
               , char *data
               , unsigned int seconds
               , unsigned int milliseconds ){
-        // TODO: Serialize, compress then encrypt.
+        // TODO: Serialize
         fail_if( s_send( connection, data ) == -1
                , return -1;
                , "as_send: s_send: '%s'"
