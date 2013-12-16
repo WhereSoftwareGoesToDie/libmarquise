@@ -2,8 +2,8 @@ AM_CFLAGS  = -pthread -Wall $(DEPS_CFLAGS)
 AM_LDFLAGS = $(DEPS_LIBS)
 
 lib_LTLIBRARIES = libanchor_stats.la
-libanchor_stats_la_SOURCES = anchor_stats.c 
-	protobuf/DataFrame.pb-c.c
+libanchor_stats_la_SOURCES = anchor_stats.c \
+	protobuf/DataFrame.pb-c.c \
 	protobuf/DataBurst.pb-c.c
 
 include_HEADERS = anchor_stats.h
