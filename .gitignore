@@ -28,3 +28,8 @@ m4/
 *.la
 src/.libs/
 src/send_anchor_stat
+src/protobuf/.deps/
+src/protobuf/.dirstamp
+src/protobuf/DataFrame.pb-c.c
+src/protobuf/DataFrame.pb-c.h
+

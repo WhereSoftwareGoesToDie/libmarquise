@@ -1,12 +1,22 @@
 AC_INIT([libanchor_stats], [0.0.1], [pingu@anchor.net.au])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 LT_INIT
 
 AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
+
+PKG_CHECK_MODULES([DEPS], [glib-2.0 >= 2.5])
+PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.1])
+AC_SUBST(PROTOBUF_LIBS)
+AC_SUBST(PROTOBUF_CFLAGS)
+AC_SUBST(PROTOBUF_VERSION)
+
+AC_CHECK_PROG([PROTOC_C], [protoc-c], [protoc-c])
+AS_IF([test "x${PROTOC-C}" == "x"],
+          [AC_MSG_ERROR([ProtoBuf compiler "protoc-c" not found.])])
 
 AC_CHECK_LIB([zmq], [zmq_connect])
 

@@ -1,10 +1,9 @@
 #include "anchor_stats.h"
-#include "zmq_helpers.c"
 #include "../config.h"
 
-#include <unistd.h>
 
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include <syslog.h>
 #include <zmq.h>
@@ -30,9 +29,6 @@ typedef struct {
 } data_burst;
 
 static void *queue_loop ( void *queue_socket );
-
-static void send_upstream( void *upstream_connection
-                         , data_burst *burst );
 
 #define ctx_fail_if( assertion, action, ... ) do {                  \
         fail_if( assertion                                          \
@@ -228,9 +224,5 @@ int as_send( as_connection connection
               , unsigned int seconds
               , unsigned int milliseconds ){
         // TODO: Serialize
-        fail_if( s_send( connection, data ) == -1
-               , return -1;
-               , "as_send: s_send: '%s'"
-               , strerror( errno ) );
         return 0;
 }
