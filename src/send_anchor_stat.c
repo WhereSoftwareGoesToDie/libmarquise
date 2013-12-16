@@ -1,5 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <time.h>
 #include <anchor_stats.h>
 
 int main () {
@@ -7,8 +9,16 @@ int main () {
         as_connection connection = as_connect(consumer);
 
         int i;
+	char field_buf[1][4];
+	char value_buf[1][4];
+	strcpy(field_buf[0], "foo");
+	strcpy(value_buf[0], "bar");
         for(i = 0; i < 10000; i++) {
-                //as_send( connection, "key", "data", 24, 0 );
+		struct timespec ts;
+		uint64_t timestamp;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		timestamp = ts.tv_sec * 1000000000 + ts.tv_nsec;
+                as_send_int( connection, field_buf, value_buf, 1, 4, timestamp);
         }
         as_close( connection );
         as_consumer_shutdown( consumer );

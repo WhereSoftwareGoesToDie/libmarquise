@@ -210,3 +210,51 @@ int as_send( as_connection connection
                , strerror( errno ) );
         return 0;
 }
+
+
+int as_send_text( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           , char *data
+           , uint64_t timestamp) {
+	return 0;
+}
+
+int as_send_int( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           , int data
+           // nanoseconds
+           , uint64_t timestamp) {
+	return 0;
+}
+
+int as_send_real( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           , double data
+           // nanoseconds
+           , uint64_t timestamp) {
+	return 0;
+}
+
+int as_send_counter( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           // nanoseconds
+           , uint64_t timestamp) {
+	return 0;
+}
+
+int as_send_binary( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           , char *data
+           , uint64_t timestamp) {
+	return 0;
+}
