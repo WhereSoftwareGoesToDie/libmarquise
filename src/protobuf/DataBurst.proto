@@ -1,0 +1,7 @@
+import "DataFrame.proto";
+
+message DataBurst {
+        repeated DataFrame frames = 1;
+}
+
+// vim: set expandtab tabstop=8:

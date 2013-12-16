@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 typedef void *as_consumer;
 typedef void *as_connection;
 
@@ -25,8 +27,47 @@ void as_close( as_connection connection );
 // Returns 0 on success, -1 on failure, setting errno. Will only possibly fail
 // on zmq_send_msg. This will probably only ever fail if you provide an invalid
 // connection.
-int as_send( as_connection connection
-           , char *key
+
+// Type: TEXT
+int as_send_text( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
            , char *data
-           , unsigned int second
-           , unsigned int milliseconds );
+           // nanoseconds
+           , uint64_t timestamp);
+
+// Type: NUMBER
+int as_send_int( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           , int data
+           // nanoseconds
+           , uint64_t timestamp);
+
+// Type: REAL
+int as_send_real( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           , double data
+           // nanoseconds
+           , uint64_t timestamp);
+
+// Type: EMPTY
+int as_send_counter( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           // nanoseconds
+           , uint64_t timestamp);
+
+// Type: BINARY
+int as_send_binary( as_connection connection
+           , char **tag_fields
+           , char **tag_values
+           , int tag_count
+           , char *data
+           // nanoseconds
+           , uint64_t timestamp);

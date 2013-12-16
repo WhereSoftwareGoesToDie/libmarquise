@@ -194,6 +194,7 @@ static void *queue_loop( void *args_ptr ) {
         // Will block untill we get all of our deferred messages out.
         zmq_close( args->upstream_connection );
         free(args);
+	return NULL;
 }
 
 void as_consumer_shutdown( as_consumer consumer ) {
