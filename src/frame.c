@@ -14,7 +14,7 @@
 #include <string.h>
 
 DataFrame__Tag* build_frame_tag(char* field, char* value) {
-        DataFrame__Tag* tag = malloc(sizeof(DataFrame__Tag));
+        DataFrame__Tag* tag = DATA_FRAME__TAG__INIT;
         int len_field = strlen(field) + 1;
         int len_value = strlen(value) + 1;
         tag->field = malloc(sizeof(char) * len_field);
@@ -30,7 +30,7 @@ DataFrame* build_frame_skel( char **tag_fields
                            , uint64_t timestamp
                            , DataFrame__Type payload) {
 	int i;
-        DataFrame *frame = malloc(sizeof(DataFrame));
+        DataFrame *frame = DATA_FRAME__INIT;
 	frame->n_source = tag_count;
 	frame->source = malloc(sizeof(DataFrame__Tag) * tag_count);
 	for (i = 0; i < tag_count; ++i) {

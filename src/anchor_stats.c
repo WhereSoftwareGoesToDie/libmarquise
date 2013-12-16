@@ -245,6 +245,7 @@ int as_send_int( as_connection connection
            , uint64_t timestamp) {
 	DataFrame *frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__NUMBER);
 	frame->value_numeric = data;
+	frame->has_value_numeric = 1;
 	return 0;
 }
 
@@ -256,6 +257,7 @@ int as_send_real( as_connection connection
            , uint64_t timestamp) {
 	DataFrame *frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__REAL);
 	frame->value_measurement = data;
+	frame->has_value_measurement = 1;
 	return 0;
 }
 
