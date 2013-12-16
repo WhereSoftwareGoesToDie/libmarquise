@@ -1,10 +1,4 @@
 #include "DataFrame.pb-c.h"
-#include "anchor_stats.h"
-
-/* Worker function called by the type-specific as_send_* functions in
- * anchor_stats.c. */
-int as_send_frame( as_connection connection
-              , DataFrame *frame);
 
 /* Create a tag object from a field and a value. */
 DataFrame__Tag* build_frame_tag(char* field, char* value);
@@ -18,4 +12,3 @@ DataFrame* build_frame_skel( char **tag_fields
                       , uint64_t timestamp
                       , DataFrame__Type payload);
         
-

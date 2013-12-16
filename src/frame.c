@@ -14,17 +14,6 @@
 #include <glib.h>
 #include <string.h>
 
-int as_send_frame( as_connection connection
-              , DataFrame *frame) {
-	char *data;
-        // TODO: Serialize, compress then encrypt.
-        fail_if( s_send( connection, data ) == -1
-               , return -1;
-               , "as_send: s_send: '%s'"
-               , strerror( errno ) );
-        return 0;
-}
-
 DataFrame__Tag* build_frame_tag(char* field, char* value) {
         DataFrame__Tag* tag = malloc(sizeof(DataFrame__Tag));
         int len_field = strlen(field) + 1;

@@ -1,5 +1,5 @@
 #include "anchor_stats.h"
-#include "DataFrame.pb-c.h"
+#include "frame.h"
 #include "zmq_helpers.c"
 #include "../config.h"
 
@@ -194,46 +194,72 @@ void as_close( as_connection connection ) {
         zmq_close( connection );
 }
 
+
+int as_send_frame( as_connection connection
+              , DataFrame *frame) {
+	char *data;
+        // TODO: Serialize, compress then encrypt.
+        fail_if( s_send( connection, data ) == -1
+               , return -1;
+               , "as_send: s_send: '%s'"
+               , strerror( errno ) );
+        return 0;
+}
+
 int as_send_text( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            , char *data
            , uint64_t timestamp) {
+	DataFrame *frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__TEXT);
+	frame->value_textual = malloc(sizeof(char)*(strlen(data)+1));
+	strcpy(frame->value_textual, data);
 	return 0;
 }
 
 int as_send_int( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
-           , int data
+           , size_t tag_count
+           , int64_t data
            , uint64_t timestamp) {
+	DataFrame *frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__NUMBER);
+	frame->value_numeric = data;
 	return 0;
 }
 
 int as_send_real( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            , double data
            , uint64_t timestamp) {
+	DataFrame *frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__REAL);
+	frame->value_measurement = data;
 	return 0;
 }
 
 int as_send_counter( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            , uint64_t timestamp) {
+	DataFrame *frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__EMPTY);
 	return 0;
 }
 
 int as_send_binary( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            , char *data
+	   , size_t len
            , uint64_t timestamp) {
+	DataFrame *frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__BINARY);
+	frame->value_blob.len = len;
+	frame->value_blob.data = malloc(sizeof(char)*len);
+	memcpy(frame->value_blob.data, data, len);
+	frame->has_value_blob = 1;
 	return 0;
 }

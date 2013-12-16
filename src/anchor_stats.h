@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef void *as_consumer;
 typedef void *as_connection;
@@ -38,7 +39,7 @@ void as_close( as_connection connection );
 int as_send_text( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            , char *data
            // nanoseconds
            , uint64_t timestamp);
@@ -47,8 +48,8 @@ int as_send_text( as_connection connection
 int as_send_int( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
-           , int data
+           , size_t tag_count
+           , int64_t data
            // nanoseconds
            , uint64_t timestamp);
 
@@ -56,7 +57,7 @@ int as_send_int( as_connection connection
 int as_send_real( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            , double data
            // nanoseconds
            , uint64_t timestamp);
@@ -65,7 +66,7 @@ int as_send_real( as_connection connection
 int as_send_counter( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            // nanoseconds
            , uint64_t timestamp);
 
@@ -73,7 +74,8 @@ int as_send_counter( as_connection connection
 int as_send_binary( as_connection connection
            , char **tag_fields
            , char **tag_values
-           , int tag_count
+           , size_t tag_count
            , char *data
+           , size_t len 
            // nanoseconds
            , uint64_t timestamp);
