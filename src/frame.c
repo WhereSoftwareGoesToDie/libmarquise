@@ -43,7 +43,7 @@ DataFrame build_frame_skel( char **tag_fields
 	return frame;
 }
 
-DataBurst aggregate_frames(DataFrame **frames, size_t count) {
+DataBurst aggregate_frames(char **frames, size_t count) {
 	int i;
 	DataBurst burst = DATA_BURST__INIT;
 	burst.n_frames = count;

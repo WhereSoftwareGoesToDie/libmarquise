@@ -51,7 +51,7 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
         // This is where the file will be truncated.
         long chop_at = ftell( df->stream );
 
-        burst->data = malloc( burst->length + 1 );
+        burst->data = malloc( burst->length );
         fread(burst->data, 1, burst->length, df->stream);
 
         // And chop off the end of the file.
