@@ -98,7 +98,6 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
                      zmq_close( upstream_connection );
                    , "pthread_detach returned: '%d'", err );
 
-
         // Ready to go as far as we're concerned, return the context.
         return context;
 }

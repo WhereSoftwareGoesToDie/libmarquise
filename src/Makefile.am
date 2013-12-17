@@ -22,10 +22,18 @@ dist_noinst_DATA = protobuf/DataBurst.proto protobuf/DataFrame.proto
 MOSTLYCLEANFILES = protobuf/*.c protobuf/*.h protobuf/*.o protobuf/*.lo
 
 TESTS=$(check_PROGRAMS)
-check_PROGRAMS=defer_file_test as_consumer_new_test
+check_PROGRAMS=\
+	defer_file_test \
+	as_consumer_new_test \
+	as_connect_test
+
 defer_file_test_SOURCES = tests/defer_file_test.c
 defer_file_test_LDADD = libanchor_stats.la
 
 as_consumer_new_test_SOURCES = tests/as_consumer_new_test.c
 as_consumer_new_test_LDADD = libanchor_stats.la
+
+as_connect_test_SOURCES = tests/as_connect_test.c
+as_connect_test_LDADD = libanchor_stats.la
+
 test: check
