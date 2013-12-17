@@ -68,13 +68,11 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
         bail_if( chop_at == -1, );
 
         data_burst *burst = malloc( sizeof( data_burst ) );
-        if( !burst ) return NULL;
+        bail_if( !burst, );
+
         burst->length = length;
         burst->data = malloc( burst->length );
-        if( burst->data == NULL ) {
-                free( burst );
-                return NULL;
-        }
+        bail_if( !burst->data, free( burst ); );
 
         bail_if( !fread( burst->data, 1, burst->length, df->stream )
                , free_databurst( burst); );
@@ -95,26 +93,23 @@ deferral_file *as_deferral_file_new() {
         char *file_path = malloc( strlen( template ) + 1 );
         if( !file_path ) {
                 free( df );
-                free( file_path );
                 return NULL;
         }
+
         strcpy( file_path, template );
         int fd = mkstemp( file_path );
-        if ( fd == -1 ) {
-                free( df );
-                free( file_path );
-                return NULL;
-        }
+        if ( fd == -1 ) goto fail_outro;
 
         df->path = file_path;
         df->stream = fdopen( fd, "w+" );
-        if( df->stream == NULL ) {
+        if( !df->stream ) goto fail_outro;
+
+        return df;
+
+        fail_outro:
                 free( df );
                 free( file_path );
                 return NULL;
-        }
-
-        return df;
 }
 
 void as_deferral_file_close(deferral_file *df) {
