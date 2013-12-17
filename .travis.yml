@@ -1,6 +1,6 @@
 language: c
 before_install:
-  - sudo apt-get install autoconf libtool automake && autoreconf -i
+  - sudo apt-get install autoconf libtool automake && mkdir m4 && autoreconf -i
 install:
   - ./configure && make debian-install-deps
 script:
