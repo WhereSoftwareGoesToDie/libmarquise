@@ -68,19 +68,17 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         // shiny PULL inproc socket, and the broker that the user would like to
         // connect to.
         queue_args *args          = malloc( sizeof( queue_args ) );
-        char *template = "/tmp/as_defer_file_test_XXXXXX";
-        int fd = mkstemp( template );
-        ctx_fail_if( fd == -1
-                   , zmq_close( queue_connection );
-                     zmq_close( upstream_connection );
-                   , "mkstemp: '%s'"
-                   , strerror( errno ) );
 
         args->context             = context;
         args->queue_connection    = queue_connection;
         args->upstream_connection = upstream_connection;
         args->poll_period         = poll_period;
         args->deferral_file       = as_deferral_file_new();
+        ctx_fail_if( ! args->deferral_file 
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "mkstemp: '%s'"
+                   , strerror( errno ) );
 
         pthread_t queue_pthread;
         int err = pthread_create( &queue_pthread
