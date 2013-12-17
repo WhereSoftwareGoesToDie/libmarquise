@@ -57,7 +57,10 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
                    , "zmq_connect: '%s'"
                    , strerror( errno ) );
 
-        // Give us 24 hours of backlog  at a poll period of 1
+        // We want to be explicit about the internal high water mark:
+        // After this many poll periods have elapsed, zmq_sendmsg will start
+        // returning EAGAIN and we will start deferring further messages to
+        // disk to save memory.
         int hwm = 60 * 60 * 24;
 
         ctx_fail_if( zmq_setsockopt( upstream_connection, ZMQ_SNDHWM, &hwm, sizeof( hwm ) )
@@ -175,7 +178,8 @@ static void *queue_loop( void *args_ptr ) {
                                               , ZMQ_DONTWAIT );
                         if( err == -1 ) {
                                 if( errno == EAGAIN ){
-                                        as_defer_to_file( args->deferral_file, burst );
+                                        as_defer_to_file( args->deferral_file
+                                                        , burst );
                                 }
                         }
                 }
