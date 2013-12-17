@@ -1,26 +1,19 @@
 #include "anchor_stats.h"
 #include "structs.h"
 #include "frame.h"
+#include "macros.h"
 #include "../config.h"
 #include "defer.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <syslog.h>
 #include <zmq.h>
 #include <stdio.h>
 #include <glib.h>
 #include <sys/mman.h>
 #include "lz4/lz4.h"
 #include <string.h>
-
-
-#define fail_if( assertion, action, ... ) do {                           \
-        if ( assertion ){                                                \
-                syslog( LOG_ERR, "libanchor_stats error:" __VA_ARGS__ ); \
-                { action };                                              \
-        } } while( 0 )
 
 static void *queue_loop ( void *queue_socket );
 
@@ -87,7 +80,7 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         args->queue_connection    = queue_connection;
         args->upstream_connection = upstream_connection;
         args->poll_period         = poll_period;
-        args->defer_stream        = fdopen( fd, "w+" );
+        args->deferral_file       = as_deferral_file_new();
 
         pthread_t queue_pthread;
         int err = pthread_create( &queue_pthread
@@ -183,7 +176,7 @@ static void *queue_loop( void *args_ptr ) {
                                               , ZMQ_DONTWAIT );
                         if( err == -1 ) {
                                 if( errno == EAGAIN ){
-                                        as_defer_to_file( args->defer_stream, burst );
+                                        as_defer_to_file( args->deferral_file, burst );
                                 }
                         }
                         // if errno == eagain defer
@@ -195,6 +188,7 @@ static void *queue_loop( void *args_ptr ) {
         zmq_close( args->queue_connection );
         // Will block untill we get all of our deferred messages out.
         zmq_close( args->upstream_connection );
+        as_deferral_file_close( args->deferral_file );
         free(args);
         return NULL;
 }

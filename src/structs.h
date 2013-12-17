@@ -2,10 +2,15 @@
 #include <stdio.h>
 
 typedef struct {
+        char *path;
+        FILE *stream;
+} deferral_file;
+
+typedef struct {
         void *context;
         void *queue_connection;
         void *upstream_connection;
-        FILE *defer_stream;
+        deferral_file *deferral_file;
         double poll_period;
 } queue_args;
 
@@ -13,3 +18,4 @@ typedef struct {
         char *data;
         size_t length;
 } data_burst;
+

@@ -6,44 +6,95 @@
 #include "../defer.h"
 
 typedef struct {
-        FILE *stream;
-        char *file_path;
+        deferral_file *df;
 } fixture;
 
 void setup( fixture *f, gconstpointer td ){
-        char *template = "/tmp/as_defer_file_test_XXXXXX";
-        char *file_name = malloc( strlen( template ) + 1 );
-        strcpy( file_name, template );
-        int fd = mkstemp( file_name );
-        free( file_name );
-        g_assert_cmpint( fd, !=, -1 );
-
-        f->file_path = malloc( strlen( template ) );
-        strcpy( f->file_path, template );
-
-        f->stream = fdopen( fd, "w+" );
+        f->df = as_deferral_file_new();
 }
 void teardown( fixture *f, gconstpointer td ){
-        fclose( f->stream );
-        unlink( f->file_path );
+        as_deferral_file_close(f->df);
 }
 
 void defer_then_read( fixture *f, gconstpointer td ){
-        // set up a test burst
-        data_burst *burst = malloc( sizeof( data_burst ) );
-        burst->data = malloc( 5 );
-        strcpy( burst->data, "hai" );
-        burst->length = 4;
+        // two test bursts, we expect it to behave as a LIFO stack
+        data_burst *first = malloc( sizeof( data_burst ) );
+        first->data = malloc( 5 );
+        strcpy( first->data, "first" );
+        first->length = 6;
 
-        as_defer_to_file( f->stream, burst );
+        data_burst *last = malloc( sizeof( data_burst ) );
+        last->data = malloc( 5 );
+        strcpy( last->data, "last" );
+        last->length = 5;
 
-        data_burst retrieved = as_retrieve_from_file( f->stream );
+        as_defer_to_file( f->df, first );
+        as_defer_to_file( f->df, last );
 
-        g_assert_cmpuint( burst->length, ==, retrieved.length);
-        g_assert_cmpstr( burst->data, ==, retrieved.data);
+        data_burst *first_retrieved = as_retrieve_from_file( f->df );
+        g_assert_cmpuint( last->length, ==, first_retrieved->length);
+        g_assert_cmpstr( last->data, ==, first_retrieved->data);
+
+
+        data_burst *last_retrieved = as_retrieve_from_file( f->df );
+        g_assert_cmpuint( first->length, ==, last_retrieved->length);
+        g_assert_cmpstr( first->data, ==, last_retrieved->data);
+
+        data_burst *nonexistant = as_retrieve_from_file( f->df );
+        g_assert ( !nonexistant );
+
+        free( first->data );
+        free( last->data );
+        free( first_retrieved->data );
+        free( last_retrieved->data );
 }
+
+void defer_unlink_then_read( fixture *f, gconstpointer td ){
+        data_burst *first = malloc( sizeof( data_burst ) );
+        first->data = malloc( 5 );
+        strcpy( first->data, "first" );
+        first->length = 6;
+
+        as_defer_to_file( f->df, first );
+        unlink( f->df->path );
+        data_burst *nonexistant = as_retrieve_from_file( f->df );
+        g_assert ( !nonexistant );
+}
+
+void unlink_defer_then_read( fixture *f, gconstpointer td ){
+        data_burst *first = malloc( sizeof( data_burst ) );
+        first->data = malloc( 5 );
+        strcpy( first->data, "first" );
+        first->length = 6;
+
+        unlink( f->df->path );
+        as_defer_to_file( f->df, first );
+        data_burst *first_retrieved = as_retrieve_from_file( f->df );
+        g_assert( first_retrieved );
+        g_assert_cmpuint( first->length, ==, first_retrieved->length);
+        g_assert_cmpstr( first->data, ==, first_retrieved->data);
+}
+
+
 int main( int argc, char **argv ){
         g_test_init( &argc, &argv, NULL);
-        g_test_add( "/set1/r_then_read", fixture, NULL, setup, defer_then_read, teardown );
+        g_test_add( "/set1/defer_then"
+                  , fixture
+                  , NULL
+                  , setup
+                  , defer_then_read
+                  , teardown );
+        g_test_add( "/set1/defer_unlink_then_read"
+                  , fixture
+                  , NULL
+                  , setup
+                  , defer_unlink_then_read
+                  , teardown );
+        g_test_add( "/set1/unlink_defer_then_read"
+                  , fixture
+                  , NULL
+                  , setup
+                  , unlink_defer_then_read
+                  , teardown );
         return g_test_run();
 }
