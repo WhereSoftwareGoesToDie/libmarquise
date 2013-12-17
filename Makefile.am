@@ -6,3 +6,4 @@ dist_doc_DATA = README
 debian-install-deps: 
 	sudo apt-get install -y build-essential libzmq-dev libglib2.0-dev protobuf-c-compiler
 
+test: check
