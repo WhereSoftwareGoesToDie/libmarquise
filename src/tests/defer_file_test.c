@@ -86,19 +86,19 @@ void unlink_defer_then_read( fixture *f, gconstpointer td ){
 
 int main( int argc, char **argv ){
         g_test_init( &argc, &argv, NULL);
-        g_test_add( "/set1/defer_then"
+        g_test_add( "/defer_file/defer_then"
                   , fixture
                   , NULL
                   , setup
                   , defer_then_read
                   , teardown );
-        g_test_add( "/set1/defer_unlink_then_read"
+        g_test_add( "/defer_file/defer_unlink_then_read"
                   , fixture
                   , NULL
                   , setup
                   , defer_unlink_then_read
                   , teardown );
-        g_test_add( "/set1/unlink_defer_then_read"
+        g_test_add( "/defer_file/unlink_defer_then_read"
                   , fixture
                   , NULL
                   , setup

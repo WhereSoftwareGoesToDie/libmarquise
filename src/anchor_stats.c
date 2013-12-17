@@ -17,19 +17,21 @@
 
 static void *queue_loop ( void *queue_socket );
 
-#define ctx_fail_if( assertion, action, ... ) do {                  \
-        fail_if( assertion                                          \
-               , zmq_ctx_destroy(context); { action }; return NULL; \
-               , "as_consumer_new: " __VA_ARGS__ );                 \
-        } while( 0 )
+#define ctx_fail_if( assertion, action, ... )                         \
+        fail_if( assertion                                            \
+               , { action }; zmq_ctx_destroy( context ); return NULL; \
+               , "as_consumer_new: " __VA_ARGS__ );                   \
 
 as_consumer as_consumer_new( char *broker, double poll_period ) {
         // This context is used for fast inprocess communication, we pass it to
         // the queuing thread which will connect back to us and start
         // processing requests.
         void *context = zmq_ctx_new();
-        fail_if( !context, , "zmq_ctx_new failed, this is very confusing." );
+        fail_if( !context
+               , return NULL;
+               , "zmq_ctx_new failed, this is very confusing." );
 
+        ctx_fail_if( poll_period < 0.1, , "poll_period cannot be < 0.1" );
         // Set up the queuing PULL socket.
         void *queue_connection = zmq_socket( context, ZMQ_PULL );
         ctx_fail_if( !queue_connection
@@ -74,7 +76,7 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         args->upstream_connection = upstream_connection;
         args->poll_period         = poll_period;
         args->deferral_file       = as_deferral_file_new();
-        ctx_fail_if( ! args->deferral_file 
+        ctx_fail_if( ! args->deferral_file
                    , zmq_close( queue_connection );
                      zmq_close( upstream_connection );
                    , "mkstemp: '%s'"
@@ -181,9 +183,11 @@ static void *queue_loop( void *args_ptr ) {
 
         }
 
+        g_timer_destroy( timer );
         zmq_close( args->queue_connection );
         zmq_close( args->upstream_connection );
         as_deferral_file_close( args->deferral_file );
+        as_deferral_file_free( args->deferral_file );
         free(args);
         return NULL;
 }
