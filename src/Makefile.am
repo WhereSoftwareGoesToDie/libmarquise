@@ -1,5 +1,5 @@
 AM_CFLAGS  = -pthread -Wall $(DEPS_CFLAGS)
-AM_LDFLAGS = $(DEPS_LIBS) $(PROTOBUF_C_LIBS)
+AM_LDFLAGS = $(GLIB_LIBS) -l libprotobuf-c # $(PROTOBUF_C_LIBS) -- debian bug #731726
 
 lib_LTLIBRARIES = libanchor_stats.la
 libanchor_stats_la_SOURCES =    anchor_stats.c \
