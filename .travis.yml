@@ -1,5 +1,5 @@
 language: c
 install:
-  - sudo apt-get install -y autoconf libtool automake build-essential libzmq-dev libglib2.0-dev protobuf-c-compiler libprotobuf-c libprotobuf-c0-dev && mkdir m4 && autoreconf -i
+  - sudo apt-get install -y autoconf libtool automake build-essential libzmq-dev libglib2.0-dev protobuf-c-compiler && mkdir m4 && autoreconf -i
 script:
   - ./configure && make && make check
