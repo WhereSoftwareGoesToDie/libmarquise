@@ -1,7 +1,5 @@
 language: c
-before_install:
-  - sudo apt-get install autoconf libtool automake && mkdir m4 && autoreconf -i
 install:
-  - ./configure && make debian-install-deps
+  - sudo apt-get install -y autoconf libtool automake build-essential libzmq-dev libglib2.0-dev protobuf-c-compiler libprotobuf-c libprotobuf-c0-dev && mkdir m4 && autoreconf -i
 script:
   - ./configure && make && make check
