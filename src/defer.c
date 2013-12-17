@@ -14,6 +14,7 @@
                , as_deferral_file_close( df );                          \
                  deferral_file *new = as_deferral_file_new();           \
                  *df = *new;                                            \
+                 free( new );                                           \
                , "as_defer_to_file recovered: %s", strerror( errno ) ); \
         } while( 0 )
 
@@ -27,7 +28,7 @@ void as_defer_to_file( deferral_file *df, data_burst *burst ) {
 
 data_burst *as_retrieve_from_file( deferral_file *df ) {
         struct stat sb;
-        data_burst *burst = malloc( sizeof( burst ) );
+        data_burst *burst = malloc( sizeof( data_burst ) );
 
         // Broken file means no bursts left.
         if( stat( df->path, &sb ) == -1 )
@@ -39,8 +40,8 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
                 return NULL;
 
         // Grab the length of the burst from the end of the file
-        fseek(df->stream, -( sizeof( burst->length ) ), SEEK_END);
-        fread(&burst->length, sizeof( burst->length ), 1, df->stream);
+        fseek( df->stream, -( sizeof( burst->length ) ), SEEK_END );
+        fread( &burst->length, sizeof( burst->length ), 1, df->stream );
 
         // Now read seek back that far
         fseek( df->stream
@@ -50,7 +51,7 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
         // This is where the file will be truncated.
         long chop_at = ftell( df->stream );
 
-        burst->data = malloc( burst->length );
+        burst->data = malloc( burst->length + 1 );
         fread(burst->data, 1, burst->length, df->stream);
 
         // And chop off the end of the file.

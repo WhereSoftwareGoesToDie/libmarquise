@@ -15,6 +15,7 @@ void setup( fixture *f, gconstpointer td ){
 }
 void teardown( fixture *f, gconstpointer td ){
         as_deferral_file_close(f->df);
+        free( f->df );
 }
 
 void defer_then_read( fixture *f, gconstpointer td ){
