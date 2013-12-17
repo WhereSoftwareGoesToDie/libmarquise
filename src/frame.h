@@ -15,5 +15,10 @@ DataFrame build_frame_skel( char **tag_fields
 
 /* Create a DataBurst message from count byte buffers containing
  * marshalled frames. This function doesn't do any deep copies, so don't
- * free() the DataFrames.*/ 
-char** aggregate_frames(char **frames, size_t count);        
+ * free() the DataFrames.
+ *
+ * Takes an array of byte buffers with frames, and a byte buffer in
+ * which to store  the serialized DataBurst. 
+ *
+ * Returns the number of bytes written to burst. */
+int aggregate_frames(uint8_t **frames, uint8_t *burst, size_t count);        

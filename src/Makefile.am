@@ -8,8 +8,9 @@ libanchor_stats_la_SOURCES = \
 	anchor_stats.c \
 	frame.c \
 	defer.c \
+	varint.c \
 	lz4/lz4.c
-include_HEADERS = anchor_stats.h frame.h
+include_HEADERS = anchor_stats.h frame.h varint.h
 
 bin_PROGRAMS = send_anchor_stat
 send_anchor_stat_SOURCES = send_anchor_stat.c

@@ -67,6 +67,6 @@ DataFrame build_frame_skel( char **tag_fields
  *   values, reverse it (so the last-read byte is most significant),
  *   concatenate everything and parse it as a standard little-endian
  *   binary value. */
-char** aggregate_frames(char **frames, size_t count) {
+int aggregate_frames(uint8_t **frames, uint8_t *burst, size_t count) {
 	return NULL;
 }
