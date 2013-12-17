@@ -43,6 +43,30 @@ DataFrame build_frame_skel( char **tag_fields
 	return frame;
 }
 
+/* Herein we turn an array of byte buffers representing DataFrames into
+ * a single DataBurst, then marshal it to another char**. 
+ * 
+ * We do this via protobuf tomfoolery:
+ * 
+ *  - on the wire, each DataFrame is preceded by two variable-length
+ *    values a and b, such that
+ *    
+ *  - a is a varint representing ((field_number << 3) | wire_type)
+ * 
+ *   - field_number is 1 
+ *   - wire_type is 2 (for length-delimited)
+ *   - a is therefore ((1 << 3) | 2) (or 0x0a, or ten). 
+ * 
+ * - b is simply the size (in bytes) of the following frame
+ *   representation, encoded as a varint.
+ *
+ * - the tl;dr on varints (full description here[0]) is that they
+ *   consist of an arbitrary number of bytes; at each byte, the MSB will
+ *   tell you if there is another byte to follow; once you've read all
+ *   the bytes (ignoring the MSBs), you take your list of seven-bit
+ *   values, reverse it (so the last-read byte is most significant),
+ *   concatenate everything and parse it as a standard little-endian
+ *   binary value. */
 char** aggregate_frames(char **frames, size_t count) {
 	return NULL;
 }
