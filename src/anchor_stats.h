@@ -41,6 +41,7 @@ int as_send_text( as_connection connection
            , char **tag_values
            , size_t tag_count
            , char *data
+           , size_t len
            // nanoseconds
            , uint64_t timestamp);
 

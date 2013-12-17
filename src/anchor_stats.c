@@ -243,6 +243,7 @@ int as_send_text( as_connection connection
            , char **tag_values
            , size_t tag_count
            , char *data
+           , size_t len
            , uint64_t timestamp) {
 	DataFrame frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__TEXT);
 	frame.value_textual = malloc(sizeof(char)*(strlen(data)+1));
