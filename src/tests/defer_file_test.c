@@ -5,6 +5,7 @@
 #include <errno.h>
 #include "../structs.h"
 #include "../defer.h"
+#include "../macros.h"
 
 typedef struct {
         deferral_file *df;
@@ -15,7 +16,7 @@ void setup( fixture *f, gconstpointer td ){
 }
 void teardown( fixture *f, gconstpointer td ){
         as_deferral_file_close(f->df);
-        free( f->df );
+        as_deferral_file_free( f->df );
 }
 
 void defer_then_read( fixture *f, gconstpointer td ){
@@ -45,10 +46,10 @@ void defer_then_read( fixture *f, gconstpointer td ){
         data_burst *nonexistant = as_retrieve_from_file( f->df );
         g_assert ( !nonexistant );
 
-        free( first->data );
-        free( last->data );
-        free( first_retrieved->data );
-        free( last_retrieved->data );
+        free_databurst( first );
+        free_databurst( last );
+        free_databurst( first_retrieved );
+        free_databurst( last_retrieved );
 }
 
 void defer_unlink_then_read( fixture *f, gconstpointer td ){
@@ -61,6 +62,8 @@ void defer_unlink_then_read( fixture *f, gconstpointer td ){
         unlink( f->df->path );
         data_burst *nonexistant = as_retrieve_from_file( f->df );
         g_assert ( !nonexistant );
+
+        free_databurst( first );
 }
 
 void unlink_defer_then_read( fixture *f, gconstpointer td ){
@@ -75,6 +78,9 @@ void unlink_defer_then_read( fixture *f, gconstpointer td ){
         g_assert( first_retrieved );
         g_assert_cmpuint( first->length, ==, first_retrieved->length);
         g_assert_cmpstr( first->data, ==, first_retrieved->data);
+
+        free_databurst( first );
+        free_databurst( first_retrieved );
 }
 
 

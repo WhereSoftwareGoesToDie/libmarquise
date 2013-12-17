@@ -9,10 +9,14 @@
 #include <unistd.h>
 #include <string.h>
 
+// All we can do on failure to read a file is swap out the file under the user
+// and pray that this one works better. Weird and dodgy. Yes, we lose all the
+// data. It was lost anyway. At least this way we can save more datas.
 #define recover_if( assertion, ... ) do {                               \
         fail_if( assertion                                              \
                , as_deferral_file_close( df );                          \
                  deferral_file *new = as_deferral_file_new();           \
+                 free( df->path );                                      \
                  *df = *new;                                            \
                  free( new );                                           \
                , "as_defer_to_file recovered: %s", strerror( errno ) ); \
@@ -26,50 +30,89 @@ void as_defer_to_file( deferral_file *df, data_burst *burst ) {
         recover_if( ! fwrite( &burst->length, sizeof( burst->length ), 1, df->stream ) );
 }
 
+// Just log, return NULL and get on with your life.
+#define bail_if( assertion, action) do {                                  \
+        fail_if( assertion                                                \
+               , { action }; return NULL;        \
+               , "as_retrieve_from_file failed: %s", strerror( errno ) ); \
+        } while( 0 )
+
 data_burst *as_retrieve_from_file( deferral_file *df ) {
-        struct stat sb;
-        data_burst *burst = malloc( sizeof( data_burst ) );
 
         // Broken file means no bursts left.
-        if( stat( df->path, &sb ) == -1 )
-                return NULL;
+        struct stat sb;
+        bail_if( stat( df->path, &sb ) == -1, );
 
         // Empty file means no bursts left.
-        fseek( df->stream, 0, SEEK_END );
+        bail_if( fseek( df->stream, 0, SEEK_END ), );
         if( ftell( df->stream ) <= 0 )
                 return NULL;
 
+        size_t length;
         // Grab the length of the burst from the end of the file
-        fseek( df->stream, -( sizeof( burst->length ) ), SEEK_END );
-        fread( &burst->length, sizeof( burst->length ), 1, df->stream );
+        bail_if( fseek( df->stream
+                      , -( sizeof( size_t ) )
+                      , SEEK_END ), );
+        bail_if ( !fread( &length
+                        , sizeof( length )
+                        , 1
+                        , df->stream ),  );
 
-        // Now read seek back that far
-        fseek( df->stream
-             , -( (int)burst->length + sizeof( burst->length ) )
-             , SEEK_END );
+        // Now we seek back to the beginning of the burst.
+        bail_if( fseek( df->stream
+               , -( (long)length + sizeof( length ) )
+               , SEEK_END ), );
 
-        // This is where the file will be truncated.
+        // Which is where the file will need to be truncated.
         long chop_at = ftell( df->stream );
+        bail_if( chop_at == -1, );
 
+        data_burst *burst = malloc( sizeof( data_burst ) );
+        if( !burst ) return NULL;
+        burst->length = length;
         burst->data = malloc( burst->length );
-        fread(burst->data, 1, burst->length, df->stream);
+        if( burst->data == NULL ) {
+                free( burst );
+                return NULL;
+        }
+
+        bail_if( !fread( burst->data, 1, burst->length, df->stream )
+               , free_databurst( burst); );
 
         // And chop off the end of the file.
-        ftruncate( fileno( df->stream ), chop_at );
+        bail_if( ftruncate( fileno( df->stream ), chop_at )
+               , free_databurst( burst); );
+
 
         return burst;
 }
 
 deferral_file *as_deferral_file_new() {
         deferral_file *df = malloc( sizeof( deferral_file ) );
+        if( !df ) return NULL;
+
         char *template = "/var/tmp/as_defer_file_test_XXXXXX";
         char *file_path = malloc( strlen( template ) + 1 );
+        if( !file_path ) {
+                free( df );
+                free( file_path );
+                return NULL;
+        }
         strcpy( file_path, template );
         int fd = mkstemp( file_path );
-        if ( fd == -1 ) return NULL;
+        if ( fd == -1 ) {
+                free( df );
+                free( file_path );
+                return NULL;
+        }
 
         df->path = file_path;
         df->stream = fdopen( fd, "w+" );
+        if( df->stream == NULL ) {
+                free( df );
+                free( file_path );
+                return NULL;
+        }
 
         return df;
 }
@@ -77,4 +120,9 @@ deferral_file *as_deferral_file_new() {
 void as_deferral_file_close(deferral_file *df) {
         fclose( df->stream );
         unlink( df->path );
+}
+
+void as_deferral_file_free( deferral_file *df ) {
+        free( df->path );
+        free( df );
 }
