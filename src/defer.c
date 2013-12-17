@@ -61,7 +61,7 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
 
 deferral_file *as_deferral_file_new() {
         deferral_file *df = malloc( sizeof( deferral_file ) );
-        char *template = "/tmp/as_defer_file_test_XXXXXX";
+        char *template = "/var/tmp/as_defer_file_test_XXXXXX";
         char *file_path = malloc( strlen( template ) + 1 );
         strcpy( file_path, template );
         int fd = mkstemp( file_path );
