@@ -8,7 +8,7 @@ AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
 
-PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.5])
+PKG_CHECK_MODULES([GLIB_2], [glib-2.0 >= 2.5])
 # Debian bug #731726, :(, hard coded for now.
 # PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.1])
 AC_SUBST(PROTOBUF_LIBS)
