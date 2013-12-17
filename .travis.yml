@@ -1,4 +1,7 @@
 language: c
-before_install: sudo apt-get install autoconf2.64 && autoreconf -i
-install: make debian-install-deps
-script: ./configure && make && make check
+before_install:
+  - sudo apt-get install autoconf2.64 && autoreconf -i
+install:
+  - make debian-install-deps
+script:
+  - ./configure && make && make check
