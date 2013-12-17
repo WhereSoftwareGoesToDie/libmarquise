@@ -20,7 +20,7 @@ void teardown( fixture *f, gconstpointer td ){
 void defer_then_read( fixture *f, gconstpointer td ){
         // two test bursts, we expect it to behave as a LIFO stack
         data_burst *first = malloc( sizeof( data_burst ) );
-        first->data = malloc( 5 );
+        first->data = malloc( 6 );
         strcpy( first->data, "first" );
         first->length = 6;
 
@@ -52,7 +52,7 @@ void defer_then_read( fixture *f, gconstpointer td ){
 
 void defer_unlink_then_read( fixture *f, gconstpointer td ){
         data_burst *first = malloc( sizeof( data_burst ) );
-        first->data = malloc( 5 );
+        first->data = malloc( 6 );
         strcpy( first->data, "first" );
         first->length = 6;
 
@@ -64,7 +64,7 @@ void defer_unlink_then_read( fixture *f, gconstpointer td ){
 
 void unlink_defer_then_read( fixture *f, gconstpointer td ){
         data_burst *first = malloc( sizeof( data_burst ) );
-        first->data = malloc( 5 );
+        first->data = malloc( 6 );
         strcpy( first->data, "first" );
         first->length = 6;
 

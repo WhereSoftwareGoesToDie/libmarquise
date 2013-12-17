@@ -40,7 +40,7 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
 
         // Grab the length of the burst from the end of the file
         fseek(df->stream, -( sizeof( burst->length ) ), SEEK_END);
-        fread(&burst->length, 1, sizeof( burst->length ), df->stream);
+        fread(&burst->length, sizeof( burst->length ), 1, df->stream);
 
         // Now read seek back that far
         fseek( df->stream
@@ -51,7 +51,7 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
         long chop_at = ftell( df->stream );
 
         burst->data = malloc( burst->length );
-        fread(burst->data, burst->length, 1, df->stream);
+        fread(burst->data, 1, burst->length, df->stream);
 
         // And chop off the end of the file.
         ftruncate( fileno( df->stream ), chop_at );
@@ -76,5 +76,4 @@ deferral_file *as_deferral_file_new() {
 void as_deferral_file_close(deferral_file *df) {
         fclose( df->stream );
         unlink( df->path );
-        free(df);
 }
