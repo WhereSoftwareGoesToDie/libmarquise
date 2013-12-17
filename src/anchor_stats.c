@@ -177,14 +177,11 @@ static void *queue_loop( void *args_ptr ) {
                                         as_defer_to_file( args->deferral_file, burst );
                                 }
                         }
-                        // if errno == eagain defer
-                        // try to send deferred
                 }
 
         }
 
         zmq_close( args->queue_connection );
-        // Will block untill we get all of our deferred messages out.
         zmq_close( args->upstream_connection );
         as_deferral_file_close( args->deferral_file );
         free(args);
