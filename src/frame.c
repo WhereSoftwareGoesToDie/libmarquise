@@ -60,13 +60,7 @@ DataFrame build_frame_skel( char **tag_fields
  * - b is simply the size (in bytes) of the following frame
  *   representation, encoded as a varint.
  *
- * - the tl;dr on varints (full description here[0]) is that they
- *   consist of an arbitrary number of bytes; at each byte, the MSB will
- *   tell you if there is another byte to follow; once you've read all
- *   the bytes (ignoring the MSBs), you take your list of seven-bit
- *   values, reverse it (so the last-read byte is most significant),
- *   concatenate everything and parse it as a standard little-endian
- *   binary value. */
+ * - see varint.h for more on that topic. */
 int aggregate_frames(uint8_t **frames, uint8_t *burst, size_t count) {
 	return NULL;
 }
