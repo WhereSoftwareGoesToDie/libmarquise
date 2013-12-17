@@ -27,3 +27,4 @@ check_PROGRAMS=defer_file_test
 defer_file_test_SOURCES= tests/defer_file_test.c
 defer_file_test_LDADD = libanchor_stats.la
 
+test: check
