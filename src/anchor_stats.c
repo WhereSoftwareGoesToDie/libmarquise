@@ -17,10 +17,13 @@
 
 static void *queue_loop ( void *queue_socket );
 
-#define ctx_fail_if( assertion, action, ... )                         \
-        fail_if( assertion                                            \
-               , { action }; zmq_ctx_destroy( context ); return NULL; \
-               , "as_consumer_new: " __VA_ARGS__ );                   \
+#define ctx_fail_if( assertion, action, ... )         \
+        fail_if( assertion                            \
+               , { action };                          \
+                 zmq_ctx_destroy( context );          \
+                 zmq_ctx_destroy( upstream_context ); \
+                 return NULL;                         \
+               , "as_consumer_new: " __VA_ARGS__ );   \
 
 as_consumer as_consumer_new( char *broker, double poll_period ) {
         // This context is used for fast inprocess communication, we pass it to
@@ -30,6 +33,11 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         fail_if( !context
                , return NULL;
                , "zmq_ctx_new failed, this is very confusing." );
+
+        void *upstream_context = zmq_ctx_new();
+        fail_if( !upstream_context
+               , zmq_ctx_destroy( context ); return NULL;
+               , "zmq_ctx_new (upstream) failed, this is very confusing." );
 
         ctx_fail_if( poll_period <= 0, , "poll_period cannot be <= 0" );
         // Set up the queuing PULL socket.
@@ -45,13 +53,13 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
                    , strerror( errno ) );
 
         // Set up the upstream PUSH socket.
-        void *upstream_connection = zmq_socket( context, ZMQ_PUSH );
+        void *upstream_connection = zmq_socket( upstream_context, ZMQ_PUSH );
         ctx_fail_if( !queue_connection
                    , zmq_close( queue_connection );
                    , "zmq_socket: '%s'"
                    , strerror( errno ) );
 
-        ctx_fail_if( zmq_connect( queue_connection, broker )
+        ctx_fail_if( zmq_connect( upstream_connection, broker )
                    , zmq_close( queue_connection );
                      zmq_close( upstream_connection );
                    , "zmq_connect: '%s'"
@@ -80,6 +88,7 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
 
         args->context             = context;
         args->queue_connection    = queue_connection;
+        args->upstream_context    = upstream_context;
         args->upstream_connection = upstream_connection;
         args->poll_period         = poll_period;
         args->deferral_file       = as_deferral_file_new();
@@ -108,6 +117,57 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         // Ready to go as far as we're concerned, return the context.
         return context;
 }
+
+static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
+{
+        static frame *accumulator;
+        static size_t offset = 0;
+
+        // Reset and return result
+        if( !zmq_message && !queue_length ) {
+                frame *ret = accumulator;
+                accumulator = NULL;
+                offset = 0;
+                return ret;
+        }
+
+        if( *queue_length <= 0 )
+                return NULL;
+
+        if( !accumulator ) {
+                accumulator = calloc( *queue_length, sizeof( uint8_t * ) );
+                if( !accumulator ) {
+                        *queue_length -= 1;
+                        return NULL;
+                }
+        }
+
+        size_t msg_size = zmq_msg_size( zmq_message );
+        accumulator[offset].length = msg_size;
+        accumulator[offset].data = malloc( msg_size );
+        memcpy( accumulator[offset].data, zmq_msg_data( zmq_message ), msg_size );
+        zmq_msg_close( zmq_message );
+        offset++;
+
+        return NULL;
+}
+
+// This function either sends the message or defers it. There is no try.
+static int try_send_upstream(data_burst *burst, void *connection, deferral_file *df) {
+        zmq_msg_t message;
+        zmq_msg_init_size( &message, burst->length );
+        char *msg_data = zmq_msg_data( &message );
+
+        memcpy( msg_data
+                , burst->data
+                , burst->length );
+
+        fail_if( zmq_msg_send( &message
+                             , connection, ZMQ_DONTWAIT) == -1
+               , as_defer_to_file( df, burst );
+               , "deferred message to disk: '%s'", strerror( errno ) );
+}
+
 
 // Listen for events, queue them up for the specified time and then send them
 // to the specified broker.
@@ -160,32 +220,40 @@ static void *queue_loop( void *args_ptr ) {
 
                 if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
                         g_timer_reset(timer);
-                        // Time to flush!
+                        // And from the dead, a wild databurst appears!
+                        data_burst *zombie =
+                                as_retrieve_from_file( args->deferral_file );
+                        if( zombie ) {
+                                try_send_upstream( zombie
+                                                 , args->upstream_connection
+                                                 , args->deferral_file );
+                                free_databurst( zombie );
+                        }
 
-                        // TODO: Serialize, compress and encrypt queue into a
-                        // burst, then free it.
-                        data_burst *burst = malloc( sizeof( data_burst ) );
-                        burst->data = malloc( 5 );
-                        strcpy( burst->data, "hai" );
-                        burst->length = 4;
+                        if( !queue ) continue; // Nothing to do
 
-                        // Simulating freeing(). This is really fast.
+                        printf("flushing list: %d\n", g_slist_length( queue ));
+
+                        // This iterates over the entire list, passing each
+                        // element to accumulate_databursts
+                        guint queue_length = g_slist_length( queue );
+                        g_slist_foreach( queue, (GFunc)accumulate_databursts, &queue_length );
+                        g_slist_free( queue );
                         queue = NULL;
 
-                        zmq_msg_t message;
-                        zmq_msg_init_size( &message, burst->length );
-                        memcpy( zmq_msg_data( &message )
-                              , burst->data
-                              , burst->length );
-                        int err = zmq_msg_send( &message
-                                              , args->upstream_connection
-                                              , ZMQ_DONTWAIT );
-                        if( err == -1 ) {
-                                if( errno == EAGAIN ){
-                                        as_defer_to_file( args->deferral_file
-                                                        , burst );
-                                }
-                        }
+                        frame *frames = accumulate_databursts( NULL, NULL );
+                        data_burst burst;
+                        size_t max_burst_length =
+                                get_databurst_size( frames, queue_length );
+                        burst.data = malloc( max_burst_length );
+                        burst.length = aggregate_frames( frames
+                                                       , queue_length
+                                                       , burst.data );
+
+                        try_send_upstream( &burst
+                                         , args->upstream_connection
+                                         , args->deferral_file );
+                        free( burst.data);
                 }
 
         }
@@ -198,6 +266,7 @@ static void *queue_loop( void *args_ptr ) {
         free(args);
         return NULL;
 }
+
 void as_consumer_shutdown( as_consumer consumer ) {
         zmq_ctx_destroy( consumer );
 }

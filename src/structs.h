@@ -10,6 +10,7 @@ typedef struct {
 typedef struct {
         void *context;
         void *queue_connection;
+        void *upstream_context;
         void *upstream_connection;
         deferral_file *deferral_file;
         double poll_period;
@@ -19,4 +20,9 @@ typedef struct {
         uint8_t *data;
         size_t length;
 } data_burst;
+
+typedef struct {
+        uint8_t *data;
+        size_t length;
+} frame;
 

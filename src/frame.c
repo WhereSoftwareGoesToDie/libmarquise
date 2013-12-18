@@ -1,6 +1,7 @@
 #include "protobuf/DataFrame.pb-c.h"
 #include "protobuf/DataBurst.pb-c.h"
 #include "anchor_stats.h"
+#include "structs.h"
 #include "frame.h"
 #include "varint.h"
 #include "../config.h"
@@ -45,51 +46,48 @@ DataFrame build_frame_skel( char **tag_fields
 }
 
 /* TODO: actually compute these values
- * 
+ *
  *       (for now we just use AS_MAX_VARINT64_BYTES for all varints) */
-size_t get_databurst_size(uint8_t **frames, size_t *lengths, size_t count) {
-        int burst_size;
-        int i;
+size_t get_databurst_size( frame *frames, size_t count ) {
         /* one for the known byte 0x0a, the rest for the frame-size encoding */
-        burst_size = (1 + AS_MAX_VARINT64_BYTES) * count;
+        int burst_size = (1 + AS_MAX_VARINT64_BYTES) * count;
+        int i;
         /* plus the actual sizes of the frames, of course */
         for (i = 0; i < count; i++) {
-                burst_size += lengths[i];
+                burst_size += frames[i].length;
         }
         return burst_size;
 }
 
 /* Herein we turn an array of byte buffers representing DataFrames into
- * a single DataBurst, then marshal it to another char**. 
- * 
+ * a single DataBurst, then marshal it to another char**.
+ *
  * We do this via protobuf tomfoolery:
- * 
+ *
  *  - on the wire, each DataFrame is preceded by two variable-length
  *    values a and b, such that
- *    
+ *
  *  - a is a varint representing ((field_number << 3) | wire_type)
- * 
- *   - field_number is 1 
+ *
+ *   - field_number is 1
  *   - wire_type is 2 (for length-delimited)
- *   - a is therefore ((1 << 3) | 2) (or 0x0a, or ten). 
- * 
+ *   - a is therefore ((1 << 3) | 2) (or 0x0a, or ten).
+ *
  * - b is simply the size (in bytes) of the following frame
  *   representation, encoded as a varint.
  *
  * - see varint.h for more on that topic. */
-int aggregate_frames(uint8_t **frames, size_t *lengths, uint8_t *burst, size_t count) {
-        int i;
-        int burst_bytes;
+int aggregate_frames(frame *frames, size_t count, uint8_t *burst ){
         uint8_t varint_buf[AS_MAX_VARINT64_BYTES];
-        int varint_size;
-        burst_bytes = 0;
+        int burst_bytes = 0;
+        int i;
         for (i = 0; i < count; i++) {
                 burst[burst_bytes++] = ((1 << 3) | 2);
-                varint_size = encode_varint_uint64(lengths[i], varint_buf);
+                int varint_size = encode_varint_uint64(frames[i].length, varint_buf);
                 memcpy(&(burst[burst_bytes]), varint_buf, varint_size);
                 burst_bytes += varint_size;
-                memcpy(&(burst[burst_bytes]), frames[i], lengths[i]);
-                burst_bytes += lengths[i];
+                memcpy(&(burst[burst_bytes]), frames[i].data, frames[i].length);
+                burst_bytes += frames[i].length;
         }
         return burst_bytes;
 }
