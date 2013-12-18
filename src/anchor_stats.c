@@ -258,13 +258,13 @@ static void *queue_loop( void *args_ptr ) {
         zmq_close( args->upstream_connection );
         as_deferral_file_close( args->deferral_file );
         as_deferral_file_free( args->deferral_file );
-        zmq_ctx_term( args->upstream_context );
+        zmq_ctx_destroy( args->upstream_context );
         free(args);
         return NULL;
 }
 
 void as_consumer_shutdown( as_consumer consumer ) {
-        zmq_ctx_term( consumer );
+        zmq_ctx_destroy( consumer );
 }
 
 #define conn_fail_if( assertion, ... ) do {            \
