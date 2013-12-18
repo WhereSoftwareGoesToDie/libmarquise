@@ -153,18 +153,12 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
 }
 
 // This function either sends the message or defers it. There is no try.
-static int try_send_upstream(data_burst *burst, void *connection, deferral_file *df) {
-        zmq_msg_t message;
-        zmq_msg_init_size( &message, burst->length );
-        char *msg_data = zmq_msg_data( &message );
-
-        memcpy( msg_data
-                , burst->data
-                , burst->length );
-
-        fail_if( zmq_msg_send( &message
-                             , connection, ZMQ_DONTWAIT) == -1
-               , as_defer_to_file( df, burst );
+static void try_send_upstream(data_burst *burst, void *connection, deferral_file *df) {
+        fail_if( zmq_send( connection
+                         , burst->data
+                         , burst->length
+                         , ZMQ_DONTWAIT) == -1
+               , as_defer_to_file( df, burst ); return;
                , "deferred message to disk: '%s'", strerror( errno ) );
 }
 
@@ -249,6 +243,7 @@ static void *queue_loop( void *args_ptr ) {
                         burst.length = aggregate_frames( frames
                                                        , queue_length
                                                        , burst.data );
+                        free( frames );
 
                         try_send_upstream( &burst
                                          , args->upstream_connection
@@ -263,12 +258,13 @@ static void *queue_loop( void *args_ptr ) {
         zmq_close( args->upstream_connection );
         as_deferral_file_close( args->deferral_file );
         as_deferral_file_free( args->deferral_file );
+        zmq_ctx_term( args->upstream_context );
         free(args);
         return NULL;
 }
 
 void as_consumer_shutdown( as_consumer consumer ) {
-        zmq_ctx_destroy( consumer );
+        zmq_ctx_term( consumer );
 }
 
 #define conn_fail_if( assertion, ... ) do {            \
@@ -300,8 +296,10 @@ int as_send_frame( as_connection connection
 
         data_frame__pack( frame, marshalled_frame );
 
-        return zmq_send( connection, marshalled_frame, length, 0);
+        int ret = zmq_send( connection, marshalled_frame, length, 0);
+        free( frame->source );
         free( marshalled_frame );
+        return ret;
 }
 
 int as_send_text( as_connection connection

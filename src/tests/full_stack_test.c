@@ -18,8 +18,6 @@ void setup( fixture *f, gconstpointer td ){
         g_assert( f->connection );
 }
 void teardown( fixture *f, gconstpointer td ){
-        as_close( f->connection );
-        as_consumer_shutdown( f->context );
 }
 
 // Starting simple, we send one message and make sure we get it.
@@ -41,6 +39,12 @@ void one_message( fixture *f, gconstpointer td ){
         char *scratch = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
         g_assert_cmpint( recieved, ==, 27 );
+        free( scratch );
+
+        zmq_close( bind_sock );
+        zmq_ctx_destroy( context );
+        as_close( f->connection );
+        as_consumer_shutdown( f->context );
 }
 
 // The aim here is to test a bunch of messages being sent without an upstream

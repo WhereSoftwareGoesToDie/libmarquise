@@ -87,6 +87,7 @@ int aggregate_frames(frame *frames, size_t count, uint8_t *burst ){
                 memcpy(&(burst[burst_bytes]), varint_buf, varint_size);
                 burst_bytes += varint_size;
                 memcpy(&(burst[burst_bytes]), frames[i].data, frames[i].length);
+                free(frames[i].data);
                 burst_bytes += frames[i].length;
         }
         return burst_bytes;
