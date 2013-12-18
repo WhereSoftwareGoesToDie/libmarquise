@@ -224,19 +224,15 @@ void as_close( as_connection connection ) {
 }
 
 int as_send_frame( as_connection connection
-              , DataFrame frame) {
-        uint8_t *marshalled_frame;
-        char *compressed_frame;
-        unsigned int len;
-        unsigned int compressed_size;
-        len = data_frame__get_packed_size(&frame);
-        marshalled_frame = malloc(len);
-        data_frame__pack(&frame, marshalled_frame);
-        /*fail_if( s_send( connection, data ) == -1
-               , return -1;
-               , "as_send: s_send: '%s'"
-               , strerror( errno ) );*/
-        return 0;
+                 , DataFrame *frame) {
+        size_t length = data_frame__get_packed_size( frame );
+        uint8_t *marshalled_frame = malloc( length );
+        if( !marshalled_frame ) return -1;
+
+        data_frame__pack( frame, marshalled_frame );
+        free( marshalled_frame );
+
+        return zmq_send( connection, marshalled_frame, length, 0);
 }
 
 int as_send_text( as_connection connection
@@ -244,12 +240,16 @@ int as_send_text( as_connection connection
            , char **source_values
            , size_t source_count
            , char *data
-           , size_t len
+           , size_t length
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__TEXT);
-	frame.value_textual = malloc(sizeof(char)*(strlen(data)+1));
-	strcpy(frame.value_textual, data);
-	return as_send_frame(connection, frame);
+        DataFrame frame = build_frame_skel( source_fields
+                                          , source_values
+                                          , source_count
+                                          , timestamp
+                                          , DATA_FRAME__TYPE__TEXT );
+        frame.value_textual = malloc( strlen(data) + 1 );
+        strcpy( frame.value_textual, data );
+        return as_send_frame( connection, &frame );
 }
 
 int as_send_int( as_connection connection
@@ -258,10 +258,14 @@ int as_send_int( as_connection connection
            , size_t source_count
            , int64_t data
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__NUMBER);
-	frame.value_numeric = data;
-	frame.has_value_numeric = 1;
-	return as_send_frame(connection, frame);
+        DataFrame frame = build_frame_skel( source_fields
+                                          , source_values
+                                          , source_count
+                                          , timestamp
+                                          , DATA_FRAME__TYPE__NUMBER);
+        frame.value_numeric = data;
+        frame.has_value_numeric = 1;
+        return as_send_frame(connection, &frame);
 }
 
 int as_send_real( as_connection connection
@@ -270,10 +274,14 @@ int as_send_real( as_connection connection
            , size_t source_count
            , double data
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__REAL);
-	frame.value_measurement = data;
-	frame.has_value_measurement = 1;
-	return as_send_frame(connection, frame);
+        DataFrame frame = build_frame_skel(source_fields
+                                          , source_values
+                                          , source_count
+                                          , timestamp
+                                          , DATA_FRAME__TYPE__REAL);
+        frame.value_measurement = data;
+        frame.has_value_measurement = 1;
+        return as_send_frame( connection, &frame );
 }
 
 int as_send_counter( as_connection connection
@@ -281,8 +289,12 @@ int as_send_counter( as_connection connection
            , char **source_values
            , size_t source_count
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__EMPTY);
-	return as_send_frame(connection, frame);
+        DataFrame frame = build_frame_skel(source_fields
+                                          , source_values
+                                          , source_count
+                                          , timestamp
+                                          , DATA_FRAME__TYPE__EMPTY);
+        return as_send_frame(connection, &frame);
 }
 
 int as_send_binary( as_connection connection
@@ -290,12 +302,16 @@ int as_send_binary( as_connection connection
            , char **source_values
            , size_t source_count
            , char *data
-	   , size_t len
+           , size_t length
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__BINARY);
-	frame.value_blob.len = len;
-	frame.value_blob.data = malloc(sizeof(char)*len);
-	memcpy(frame.value_blob.data, data, len);
-	frame.has_value_blob = 1;
-	return as_send_frame(connection, frame);
+        DataFrame frame = build_frame_skel(source_fields
+                                          , source_values
+                                          , source_count
+                                          , timestamp
+                                          , DATA_FRAME__TYPE__BINARY);
+        frame.value_blob.len = length;
+        frame.value_blob.data = malloc( length );
+        memcpy( frame.value_blob.data, data, length );
+        frame.has_value_blob = 1;
+        return as_send_frame( connection, &frame );
 }

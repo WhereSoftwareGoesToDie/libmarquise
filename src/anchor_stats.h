@@ -35,7 +35,7 @@ int as_send_text( as_connection connection
                 , char **source_values
                 , size_t source_count
                 , char *data
-                , size_t len
+                , size_t length
                 // nanoseconds
                 , uint64_t timestamp);
 
@@ -71,6 +71,6 @@ int as_send_binary( as_connection connection
                   , char **source_values
                   , size_t source_count
                   , char *data
-                  , size_t len
+                  , size_t length
                   // nanoseconds
                   , uint64_t timestamp);

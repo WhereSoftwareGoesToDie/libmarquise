@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 typedef struct {
         char *path;
@@ -15,7 +16,7 @@ typedef struct {
 } queue_args;
 
 typedef struct {
-        char *data;
+        uint8_t *data;
         size_t length;
 } data_burst;
 

@@ -10,16 +10,14 @@ int main () {
         as_connection connection = as_connect(consumer);
 
         int i;
-	char field_buf[1][4];
-	char value_buf[1][4];
-	strcpy(field_buf[0], "foo");
-	strcpy(value_buf[0], "bar");
+        char *field_buf[] = {"foo"};
+        char *value_buf[] = {"bar"};
         for(i = 0; i < 10000; i++) {
-		struct timespec ts;
-		uint64_t timestamp;
-		int64_t value = 4;
-		clock_gettime(CLOCK_REALTIME, &ts);
-		timestamp = ts.tv_sec * 1000000000 + ts.tv_nsec;
+                struct timespec ts;
+                uint64_t timestamp;
+                int64_t value = 4;
+                clock_gettime(CLOCK_REALTIME, &ts);
+                timestamp = ts.tv_sec * 1000000000 + ts.tv_nsec;
                 as_send_int( connection, field_buf, value_buf, 1, value, timestamp);
         }
         as_close( connection );

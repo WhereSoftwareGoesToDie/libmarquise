@@ -18,7 +18,7 @@ void setup( fixture *f, gconstpointer td ){
 }
 void teardown( fixture *f, gconstpointer td ){
         as_close( f->connection );
-        as_shutdown( f->context );
+        as_consumer_shutdown( f->context );
 }
 
 // The aim here is to test a bunch of messages being sent without an upstream
@@ -27,6 +27,9 @@ void teardown( fixture *f, gconstpointer td ){
 // Then we bring back the upstream connection and have all of the messages come
 // through intact.
 void deferred_to_disk( fixture *f, gconstpointer td ){
+        char *field_buf[] = {"foo"};
+        char *value_buf[] = {"bar"};
+        as_send_int( f->connection, field_buf, value_buf, 1, 10, 20 );
 }
 
 int main( int argc, char **argv ){
