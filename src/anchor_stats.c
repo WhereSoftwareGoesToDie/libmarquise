@@ -73,6 +73,10 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         // shiny PULL inproc socket, and the broker that the user would like to
         // connect to.
         queue_args *args          = malloc( sizeof( queue_args ) );
+        ctx_fail_if( !args
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "malloc()" );
 
         args->context             = context;
         args->queue_connection    = queue_connection;
