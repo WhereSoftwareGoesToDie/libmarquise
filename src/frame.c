@@ -31,32 +31,32 @@ DataFrame build_frame_skel( char **tag_fields
                            , int tag_count
                            , uint64_t timestamp
                            , DataFrame__Type payload) {
-	int i;
+        int i;
         DataFrame frame = DATA_FRAME__INIT;
-	frame.n_source = tag_count;
-	frame.source = malloc(sizeof(DataFrame__Tag*) * tag_count);
-	for (i = 0; i < tag_count; ++i) {
-		frame.source[i] = malloc(sizeof(DataFrame__Tag));
-		*(frame.source[i]) = build_frame_tag(tag_fields[i], tag_values[i]);
-	}
-	frame.payload = payload;
+        frame.n_source = tag_count;
+        frame.source = malloc(sizeof(DataFrame__Tag*) * tag_count);
+        for (i = 0; i < tag_count; ++i) {
+                frame.source[i] = malloc(sizeof(DataFrame__Tag));
+                *(frame.source[i]) = build_frame_tag(tag_fields[i], tag_values[i]);
+        }
+        frame.payload = payload;
         frame.timestamp = timestamp;
-	return frame;
+        return frame;
 }
 
 /* TODO: actually compute these values
  * 
  *       (for now we just use AS_MAX_VARINT64_BYTES for all varints) */
 size_t get_databurst_size(uint8_t **frames, size_t *lengths, size_t count) {
-	int burst_size;
-	int i;
-	/* one for the known byte 0x0a, the rest for the frame-size encoding */
-	burst_size = (1 + AS_MAX_VARINT64_BYTES) * count;
-	/* plus the actual sizes of the frames, of course */
-	for (i = 0; i < count; i++) {
-		burst_size += lengths[i];
-	}
-	return burst_size;
+        int burst_size;
+        int i;
+        /* one for the known byte 0x0a, the rest for the frame-size encoding */
+        burst_size = (1 + AS_MAX_VARINT64_BYTES) * count;
+        /* plus the actual sizes of the frames, of course */
+        for (i = 0; i < count; i++) {
+                burst_size += lengths[i];
+        }
+        return burst_size;
 }
 
 /* Herein we turn an array of byte buffers representing DataFrames into
@@ -77,7 +77,19 @@ size_t get_databurst_size(uint8_t **frames, size_t *lengths, size_t count) {
  *   representation, encoded as a varint.
  *
  * - see varint.h for more on that topic. */
-int aggregate_frames(uint8_t **frames, size_t *frame_lengths, uint8_t *burst, size_t count) {
-       	 
-        return NULL;
+int aggregate_frames(uint8_t **frames, size_t *lengths, uint8_t *burst, size_t count) {
+        int i;
+	int burst_bytes;
+	uint8_t varint_buf[AS_MAX_VARINT64_BYTES];
+	int varint_size;
+	burst_bytes = 0;
+	for (i = 0; i < count; i++) {
+		burst[burst_bytes++] = ((1 << 3) | 2);
+		varint_size = encode_varint_uint64(lengths[i], varint_buf);
+		memcpy(&(burst[burst_bytes]), varint_buf, varint_size);
+		burst_bytes += varint_size;
+		memcpy(&(burst[burst_bytes]), frames[i], lengths[i]);
+		burst_bytes += lengths[i];
+	}
+        return burst_bytes;
 }
