@@ -31,7 +31,7 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
                , return NULL;
                , "zmq_ctx_new failed, this is very confusing." );
 
-        ctx_fail_if( poll_period < 0.1, , "poll_period cannot be < 0.1" );
+        ctx_fail_if( poll_period <= 0, , "poll_period cannot be <= 0" );
         // Set up the queuing PULL socket.
         void *queue_connection = zmq_socket( context, ZMQ_PULL );
         ctx_fail_if( !queue_connection
@@ -61,7 +61,7 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         // After this many poll periods have elapsed, zmq_sendmsg will start
         // returning EAGAIN and we will start deferring further messages to
         // disk to save memory.
-        int hwm = 60 * 60 * 24;
+        int hwm = 120;
 
         ctx_fail_if( zmq_setsockopt( upstream_connection, ZMQ_SNDHWM, &hwm, sizeof( hwm ) )
                    , zmq_close( queue_connection );
@@ -225,14 +225,13 @@ void as_close( as_connection connection ) {
 
 int as_send_frame( as_connection connection
               , DataFrame frame) {
-	uint8_t *marshalled_frame;
-	char *compressed_frame;
-	unsigned int len;
-	unsigned int compressed_size;
-	len = data_frame__get_packed_size(&frame);
-	marshalled_frame = malloc(len);
-	data_frame__pack(&frame, marshalled_frame);
-	
+        uint8_t *marshalled_frame;
+        char *compressed_frame;
+        unsigned int len;
+        unsigned int compressed_size;
+        len = data_frame__get_packed_size(&frame);
+        marshalled_frame = malloc(len);
+        data_frame__pack(&frame, marshalled_frame);
         /*fail_if( s_send( connection, data ) == -1
                , return -1;
                , "as_send: s_send: '%s'"
@@ -241,59 +240,59 @@ int as_send_frame( as_connection connection
 }
 
 int as_send_text( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
+           , char **source_fields
+           , char **source_values
+           , size_t source_count
            , char *data
            , size_t len
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__TEXT);
+	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__TEXT);
 	frame.value_textual = malloc(sizeof(char)*(strlen(data)+1));
 	strcpy(frame.value_textual, data);
 	return as_send_frame(connection, frame);
 }
 
 int as_send_int( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
+           , char **source_fields
+           , char **source_values
+           , size_t source_count
            , int64_t data
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__NUMBER);
+	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__NUMBER);
 	frame.value_numeric = data;
 	frame.has_value_numeric = 1;
 	return as_send_frame(connection, frame);
 }
 
 int as_send_real( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
+           , char **source_fields
+           , char **source_values
+           , size_t source_count
            , double data
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__REAL);
+	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__REAL);
 	frame.value_measurement = data;
 	frame.has_value_measurement = 1;
 	return as_send_frame(connection, frame);
 }
 
 int as_send_counter( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
+           , char **source_fields
+           , char **source_values
+           , size_t source_count
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__EMPTY);
+	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__EMPTY);
 	return as_send_frame(connection, frame);
 }
 
 int as_send_binary( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
+           , char **source_fields
+           , char **source_values
+           , size_t source_count
            , char *data
 	   , size_t len
            , uint64_t timestamp) {
-	DataFrame frame = build_frame_skel(tag_fields, tag_values, tag_count, timestamp, DATA_FRAME__TYPE__BINARY);
+	DataFrame frame = build_frame_skel(source_fields, source_values, source_count, timestamp, DATA_FRAME__TYPE__BINARY);
 	frame.value_blob.len = len;
 	frame.value_blob.data = malloc(sizeof(char)*len);
 	memcpy(frame.value_blob.data, data, len);

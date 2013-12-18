@@ -13,7 +13,7 @@ typedef void *as_connection;
 //
 // Failure almost certainly means catastrophic failure, do not retry on
 // failure, check syslog.
-as_consumer as_consumer_new( char *broker, double poll_period );
+as_consumer as_consumer_new( char *broker, double batch_period );
 
 // Cleanup a consumer's resources. Ensure that you run as_close on any
 // open connections first.
@@ -31,46 +31,47 @@ void as_close( as_connection connection );
 
 // Type: TEXT
 int as_send_text( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
-           , char *data
-           , size_t len
-           // nanoseconds
-           , uint64_t timestamp);
+                , char **source_fields
+                , char **source_values
+                , size_t source_count
+                , char *data
+                , size_t len
+                // nanoseconds
+                , uint64_t timestamp);
 
+"source" "x"
 // Type: NUMBER
 int as_send_int( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
-           , int64_t data
-           // nanoseconds
-           , uint64_t timestamp);
+               , char **source_fields
+               , char **source_values
+               , size_t source_count
+               , int64_t data
+               // nanoseconds
+               , uint64_t timestamp);
 
 // Type: REAL
 int as_send_real( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
-           , double data
-           // nanoseconds
-           , uint64_t timestamp);
+                , char **source_fields
+                , char **source_values
+                , size_t source_count
+                , double data
+                // nanoseconds
+                , uint64_t timestamp);
 
 // Type: EMPTY
 int as_send_counter( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
-           // nanoseconds
-           , uint64_t timestamp);
+                   , char **source_fields
+                   , char **source_values
+                   , size_t source_count
+                   // nanoseconds
+                   , uint64_t timestamp);
 
 // Type: BINARY
 int as_send_binary( as_connection connection
-           , char **tag_fields
-           , char **tag_values
-           , size_t tag_count
-           , char *data
-           , size_t len 
-           // nanoseconds
-           , uint64_t timestamp);
+                  , char **source_fields
+                  , char **source_values
+                  , size_t source_count
+                  , char *data
+                  , size_t len
+                  // nanoseconds
+                  , uint64_t timestamp);
