@@ -43,6 +43,21 @@ DataFrame build_frame_skel( char **tag_fields
 	return frame;
 }
 
+/* TODO: actually compute these values
+ * 
+ *       (for now we just use AS_MAX_VARINT64_SIZE for all varints) */
+size_t get_databurst_size(uint8_t **frames, size_t *lengths, size_t count) {
+	int burst_size;
+	int i;
+	/* one for the known byte 0x0a, the rest for the frame-size encoding */
+	burst_size = 1 + AS_MAX_VARINT64_SIZE; 
+	/* plus the actual sizes of the frames, of course */
+	for (i = 0; i < count; i++) {
+		burst_size += lengths[i];
+	}
+	return burst_size;
+}
+
 /* Herein we turn an array of byte buffers representing DataFrames into
  * a single DataBurst, then marshal it to another char**. 
  * 
@@ -61,6 +76,7 @@ DataFrame build_frame_skel( char **tag_fields
  *   representation, encoded as a varint.
  *
  * - see varint.h for more on that topic. */
-int aggregate_frames(uint8_t **frames, uint8_t *burst, size_t count) {
-	return NULL;
+int aggregate_frames(uint8_t **frames, size_t *frame_lengths, uint8_t *burst, size_t count) {
+       	 
+        return NULL;
 }
