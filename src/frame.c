@@ -51,7 +51,7 @@ size_t get_databurst_size(uint8_t **frames, size_t *lengths, size_t count) {
 	int burst_size;
 	int i;
 	/* one for the known byte 0x0a, the rest for the frame-size encoding */
-	burst_size = 1 + AS_MAX_VARINT64_BYTES; 
+	burst_size = (1 + AS_MAX_VARINT64_BYTES) * count;
 	/* plus the actual sizes of the frames, of course */
 	for (i = 0; i < count; i++) {
 		burst_size += lengths[i];
