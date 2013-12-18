@@ -39,7 +39,6 @@ int as_send_text( as_connection connection
                 // nanoseconds
                 , uint64_t timestamp);
 
-"source" "x"
 // Type: NUMBER
 int as_send_int( as_connection connection
                , char **source_fields
