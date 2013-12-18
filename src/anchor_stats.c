@@ -225,10 +225,6 @@ void as_close( as_connection connection ) {
 
 int as_send_frame( as_connection connection
               , DataFrame frame) {
-        // TODO: Serialize, compress then encrypt.
-
-	/* shouldn't we be doing that after they've been batched into a 
-	 * DataBurst? */
 	uint8_t *marshalled_frame;
 	char *compressed_frame;
 	unsigned int len;
@@ -236,8 +232,6 @@ int as_send_frame( as_connection connection
 	len = data_frame__get_packed_size(&frame);
 	marshalled_frame = malloc(len);
 	data_frame__pack(&frame, marshalled_frame);
-	/*compressed_frame = malloc(LZ4_compressBound(len));
-	compressed_size = LZ4_compress(marshalled_frame, compressed_frame, len);*/
 	
         /*fail_if( s_send( connection, data ) == -1
                , return -1;
