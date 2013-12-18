@@ -26,7 +26,8 @@ TESTS=$(check_PROGRAMS)
 check_PROGRAMS=\
 	defer_file_test \
 	as_consumer_new_test \
-	as_connect_test
+	as_connect_test \
+	varint_test
 
 defer_file_test_SOURCES = tests/defer_file_test.c
 defer_file_test_LDADD = libanchor_stats.la
@@ -36,5 +37,8 @@ as_consumer_new_test_LDADD = libanchor_stats.la
 
 as_connect_test_SOURCES = tests/as_connect_test.c
 as_connect_test_LDADD = libanchor_stats.la
+
+varint_test_SOURCES = tests/varint_test.c
+varint_test_LDADD = libanchor_stats.la
 
 test: check
