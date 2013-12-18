@@ -135,7 +135,7 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
                 return NULL;
 
         if( !accumulator ) {
-                accumulator = calloc( *queue_length, sizeof( uint8_t * ) );
+                accumulator = calloc( *queue_length, sizeof( frame ) );
                 if( !accumulator ) {
                         *queue_length -= 1;
                         return NULL;
@@ -299,9 +299,9 @@ int as_send_frame( as_connection connection
         if( !marshalled_frame ) return -1;
 
         data_frame__pack( frame, marshalled_frame );
-        free( marshalled_frame );
 
         return zmq_send( connection, marshalled_frame, length, 0);
+        free( marshalled_frame );
 }
 
 int as_send_text( as_connection connection
