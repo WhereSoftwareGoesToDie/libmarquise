@@ -79,17 +79,17 @@ size_t get_databurst_size(uint8_t **frames, size_t *lengths, size_t count) {
  * - see varint.h for more on that topic. */
 int aggregate_frames(uint8_t **frames, size_t *lengths, uint8_t *burst, size_t count) {
         int i;
-	int burst_bytes;
-	uint8_t varint_buf[AS_MAX_VARINT64_BYTES];
-	int varint_size;
-	burst_bytes = 0;
-	for (i = 0; i < count; i++) {
-		burst[burst_bytes++] = ((1 << 3) | 2);
-		varint_size = encode_varint_uint64(lengths[i], varint_buf);
-		memcpy(&(burst[burst_bytes]), varint_buf, varint_size);
-		burst_bytes += varint_size;
-		memcpy(&(burst[burst_bytes]), frames[i], lengths[i]);
-		burst_bytes += lengths[i];
-	}
+        int burst_bytes;
+        uint8_t varint_buf[AS_MAX_VARINT64_BYTES];
+        int varint_size;
+        burst_bytes = 0;
+        for (i = 0; i < count; i++) {
+                burst[burst_bytes++] = ((1 << 3) | 2);
+                varint_size = encode_varint_uint64(lengths[i], varint_buf);
+                memcpy(&(burst[burst_bytes]), varint_buf, varint_size);
+                burst_bytes += varint_size;
+                memcpy(&(burst[burst_bytes]), frames[i], lengths[i]);
+                burst_bytes += lengths[i];
+        }
         return burst_bytes;
 }
