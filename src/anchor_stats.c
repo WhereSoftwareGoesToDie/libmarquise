@@ -131,8 +131,9 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
                 return ret;
         }
 
-        if( *queue_length <= 0 )
+        if( *queue_length <= 0 ) {
                 return NULL;
+        }
 
         if( !accumulator ) {
                 accumulator = calloc( *queue_length, sizeof( frame ) );
@@ -182,14 +183,14 @@ static void *queue_loop( void *args_ptr ) {
         };
 
         while( 1 ) {
-                if( zmq_poll (items, 1, 100) == -1 )
-                {
+                if( zmq_poll (items, 1, 100) == -1 ) {
                         // Oh god what? We should only ever get an ETERM.
-                        if( errno != ETERM )
+                        if( errno != ETERM ) {
                                 syslog( LOG_ERR
                                       , "libanchor_stats error: zmq_poll "
                                                 "got unknown error code: %d"
                                       , errno );
+                        }
                         // We're done. If the user remembered to shutdown all
                         // the sockets, then the consumer, then there can't be
                         // any more messages waiting. Either way, we can't get
