@@ -163,8 +163,9 @@ static void try_send_upstream(data_burst *burst, void *connection, deferral_file
                          , burst->data
                          , burst->length
                          , ZMQ_DONTWAIT) == -1
-               , as_defer_to_file( df, burst ); return;
+               , as_defer_to_file( df, burst ); free_databurst( burst ); return;
                , "deferred message to disk: '%s'", strerror( errno ) );
+        free_databurst( burst );
 }
 
 
@@ -241,29 +242,44 @@ static void *queue_loop( void *args_ptr ) {
                         queue = NULL;
 
                         frame *frames = accumulate_databursts( NULL, NULL );
-                        data_burst burst;
+                        data_burst *burst = malloc( sizeof( data_burst ) );
                         size_t max_burst_length =
                                 get_databurst_size( frames, queue_length );
-                        burst.data = malloc( max_burst_length );
-                        burst.length = aggregate_frames( frames
-                                                       , queue_length
-                                                       , burst.data );
+                        burst->data = malloc( max_burst_length );
+                        burst->length = aggregate_frames( frames
+                                                        , queue_length
+                                                        , burst->data );
                         free( frames );
 
-                        try_send_upstream( &burst
+                        try_send_upstream( burst
                                          , args->upstream_connection
                                          , args->deferral_file );
-                        free( burst.data);
                 }
 
         }
 
         g_timer_destroy( timer );
-        zmq_close( args->queue_connection );
+
+        // Ensure that any messages deferred to disk are sent.
+        data_burst *remaining;
+        while( remaining = as_retrieve_from_file( args->deferral_file) ) {
+                try_send_upstream( remaining
+                                 , args->upstream_connection
+                                 , args->deferral_file );
+        }
+
+        // All messages are sent, including those deferred to disk. It's safe
+        // to destroy the context and close the socket.
         zmq_close( args->upstream_connection );
+        // Will block here untill the last message is on the wire.
         zmq_ctx_destroy( args->upstream_context );
+
         as_deferral_file_close( args->deferral_file );
         as_deferral_file_free( args->deferral_file );
+
+        // Closing this connection will allow the user's call to
+        // as_consumer_shutdown to return.
+        zmq_close( args->queue_connection );
         free(args);
         return NULL;
 }
