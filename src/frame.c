@@ -16,33 +16,70 @@
 #include <glib.h>
 #include <string.h>
 
-DataFrame__Tag build_frame_tag(char* field, char* value) {
-        DataFrame__Tag tag = DATA_FRAME__TAG__INIT;
-        int len_field = strlen(field) + 1;
-        int len_value = strlen(value) + 1;
-        tag.field = malloc(sizeof(char) * len_field);
-        tag.value = malloc(sizeof(char) * len_value);
-        strcpy(tag.field, field);
-        strcpy(tag.value, value);
+DataFrame__Tag *build_frame_tag(char* field, char* value) {
+        DataFrame__Tag *tag = malloc( sizeof( DataFrame__Tag ) );
+        if( !tag ) return NULL;
+        data_frame__tag__init( tag );
+
+        tag->field = malloc( strlen( field ) + 1 );
+        if( !tag->field ) goto bail;
+        tag->value = malloc( strlen( value) + 1);
+        if( !tag->field ) goto bail;
+
+        strcpy( tag->field, field );
+        strcpy( tag->value, value );
+
         return tag;
+
+        bail:
+        if( tag->field ) free( tag->field );
+        if( tag->value ) free( tag->value );
+        free( tag );
+        return NULL;
 }
 
-DataFrame build_frame_skel( char **tag_fields
-                           , char **tag_values
-                           , int tag_count
-                           , uint64_t timestamp
-                           , DataFrame__Type payload) {
-        int i;
-        DataFrame frame = DATA_FRAME__INIT;
-        frame.n_source = tag_count;
-        frame.source = malloc(sizeof(DataFrame__Tag*) * tag_count);
-        for (i = 0; i < tag_count; ++i) {
-                frame.source[i] = malloc(sizeof(DataFrame__Tag));
-                *(frame.source[i]) = build_frame_tag(tag_fields[i], tag_values[i]);
+void free_frame_tag( DataFrame__Tag *tag ) {
+        free( tag->field );
+        free( tag->value );
+        free( tag );
+}
+
+DataFrame *build_frame( char **tag_fields
+                      , char **tag_values
+                      , int tag_count
+                      , uint64_t timestamp
+                      , DataFrame__Type payload) {
+        DataFrame *frame = malloc( sizeof( DataFrame ) );
+        if( !frame ) return NULL;
+        data_frame__init( frame );
+
+        frame->n_source = tag_count;
+        frame->source = calloc( tag_count, sizeof( DataFrame__Tag* ) );
+        if( !frame->source ) {
+                free( frame );
+                return NULL;
         }
-        frame.payload = payload;
-        frame.timestamp = timestamp;
+
+        int i;
+        for (i = 0; i < tag_count; ++i) {
+                frame->source[i] = build_frame_tag(tag_fields[i], tag_values[i]);
+                if( !frame->source[i] ) {
+                        frame->n_source = i;
+                        free_frame( frame );
+                        return NULL;
+                }
+        }
+        frame->payload = payload;
+        frame->timestamp = timestamp;
         return frame;
+}
+
+void free_frame( DataFrame *frame ) {
+        int i;
+        for ( i = 0; i < frame->n_source; i++ )
+                free_frame_tag( frame->source[i] );
+        free( frame->source );
+        free( frame );
 }
 
 /* TODO: actually compute these values

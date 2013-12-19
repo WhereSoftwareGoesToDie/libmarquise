@@ -70,7 +70,7 @@ int as_send_binary( as_connection connection
                   , char **source_fields
                   , char **source_values
                   , size_t source_count
-                  , char *data
+                  , uint8_t *data
                   , size_t length
                   // nanoseconds
                   , uint64_t timestamp);
