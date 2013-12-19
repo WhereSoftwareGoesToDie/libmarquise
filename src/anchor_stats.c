@@ -146,6 +146,10 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
         size_t msg_size = zmq_msg_size( zmq_message );
         accumulator[offset].length = msg_size;
         accumulator[offset].data = malloc( msg_size );
+        if( !accumulator[offset].data ) {
+                *queue_length -= 1;
+                return NULL;
+        }
         memcpy( accumulator[offset].data, zmq_msg_data( zmq_message ), msg_size );
         zmq_msg_close( zmq_message );
         offset++;
@@ -257,9 +261,9 @@ static void *queue_loop( void *args_ptr ) {
         g_timer_destroy( timer );
         zmq_close( args->queue_connection );
         zmq_close( args->upstream_connection );
+        zmq_ctx_destroy( args->upstream_context );
         as_deferral_file_close( args->deferral_file );
         as_deferral_file_free( args->deferral_file );
-        zmq_ctx_destroy( args->upstream_context );
         free(args);
         return NULL;
 }
@@ -296,8 +300,10 @@ int as_send_frame( as_connection connection
         if( !marshalled_frame ) return -1;
 
         data_frame__pack( frame, marshalled_frame );
+        free_frame( frame );
 
         int ret = zmq_send( connection, marshalled_frame, length, 0);
+        free( marshalled_frame );
         return ret;
 }
 
