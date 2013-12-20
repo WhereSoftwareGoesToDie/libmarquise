@@ -28,6 +28,8 @@ void one_message( fixture *f, gconstpointer td ){
         // Send a few messages
         g_assert( as_send_int( f->connection, field_buf, value_buf, 1, 10, 20 )
                   != -1 );
+        g_assert( as_send_int( f->connection, field_buf, value_buf, 1, 10, 20 )
+                  != -1 );
 
         // Now start up the server and expect them all.
         void *context = zmq_ctx_new();
@@ -38,7 +40,7 @@ void one_message( fixture *f, gconstpointer td ){
 
         char *scratch = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 27 );
+        g_assert_cmpint( recieved, ==, 54 );
         free( scratch );
 
         zmq_close( bind_sock );

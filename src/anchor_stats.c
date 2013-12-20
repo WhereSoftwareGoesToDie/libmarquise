@@ -152,6 +152,7 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
         }
         memcpy( accumulator[offset].data, zmq_msg_data( zmq_message ), msg_size );
         zmq_msg_close( zmq_message );
+        free( zmq_message );
         offset++;
 
         return NULL;
@@ -204,17 +205,18 @@ static void *queue_loop( void *args_ptr ) {
                 }
 
                 if (items [0].revents & ZMQ_POLLIN) {
-                        zmq_msg_t message;
-                        zmq_msg_init( &message );
+                        zmq_msg_t *message = malloc( sizeof( zmq_msg_t ) );
+                        if( !message ) continue;
+                        zmq_msg_init( message );
 
-                        fail_if( zmq_msg_recv( &message
+                        fail_if( zmq_msg_recv( message
                                              , args->queue_connection
                                              , 0 ) == -1
                                ,
                                , "queue_loop: zmq_msg_recv: '%s'"
                                , strerror( errno ) );
 
-                        queue = g_slist_append( queue, &message );
+                        queue = g_slist_append( queue, message );
                         // Defer closing for send_upstream
                 }
 
@@ -231,8 +233,6 @@ static void *queue_loop( void *args_ptr ) {
                         }
 
                         if( !queue ) continue; // Nothing to do
-
-                        printf("flushing list: %d\n", g_slist_length( queue ));
 
                         // This iterates over the entire list, passing each
                         // element to accumulate_databursts
