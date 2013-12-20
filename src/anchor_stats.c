@@ -317,7 +317,12 @@ int as_send_frame( as_connection connection
         data_frame__pack( frame, marshalled_frame );
         free_frame( frame );
 
-        int ret = zmq_send( connection, marshalled_frame, length, 0);
+        int ret;
+        retry:
+        ret = zmq_send( connection, marshalled_frame, length, 0);
+        if( ret == -1  && errno == EINTR )
+                goto retry;
+
         free( marshalled_frame );
         return ret;
 }
