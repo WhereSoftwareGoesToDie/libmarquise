@@ -14,6 +14,7 @@
 #include <sys/mman.h>
 #include "lz4/lz4.h"
 #include <string.h>
+#include <math.h>
 
 static void *queue_loop ( void *queue_socket );
 
@@ -199,6 +200,7 @@ static void *queue_loop( void *args_ptr ) {
         GSList *queue = NULL;
         GTimer *timer = g_timer_new();
         gulong ms; // Useless, microseconds for gtimer_elapsed
+        int poll_ms = floor( 1000 * args->poll_period );
 
         // We poll so that we can ensure that we flush at most
         // 100ms late, as opposed to waiting for an event to
@@ -268,8 +270,6 @@ static void *queue_loop( void *args_ptr ) {
                                 , args->upstream_connection
                                 , args->deferral_file );
 
-        // https://github.com/zeromq/libzmq/issues/795
-        usleep( 10000 );
 
         // Ensure that any messages deferred to disk are sent.
         data_burst *remaining;
@@ -278,6 +278,9 @@ static void *queue_loop( void *args_ptr ) {
                                  , args->upstream_connection
                                  , args->deferral_file );
         }
+
+        // https://github.com/zeromq/libzmq/issues/795
+        usleep( 10000 );
 
         // All messages are sent, including those deferred to disk. It's safe
         // to destroy the context and close the socket.  Will block here untill
