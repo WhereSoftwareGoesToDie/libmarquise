@@ -23,12 +23,12 @@ void defer_then_read( fixture *f, gconstpointer td ){
         // two test bursts, we expect it to behave as a LIFO stack
         data_burst *first = malloc( sizeof( data_burst ) );
         first->data = malloc( 6 );
-        strcpy( first->data, "first" );
+        memcpy(first->data,"first", 6);
         first->length = 6;
 
         data_burst *last = malloc( sizeof( data_burst ) );
         last->data = malloc( 5 );
-        strcpy( last->data, "last" );
+        memcpy(first->data, "last", 5);
         last->length = 5;
 
         as_defer_to_file( f->df, first );
@@ -36,12 +36,12 @@ void defer_then_read( fixture *f, gconstpointer td ){
 
         data_burst *first_retrieved = as_retrieve_from_file( f->df );
         g_assert_cmpuint( last->length, ==, first_retrieved->length);
-        g_assert_cmpstr( last->data, ==, first_retrieved->data);
+        g_assert_cmpstr( (char *)last->data, ==, (char *)first_retrieved->data);
 
 
         data_burst *last_retrieved = as_retrieve_from_file( f->df );
         g_assert_cmpuint( first->length, ==, last_retrieved->length);
-        g_assert_cmpstr( first->data, ==, last_retrieved->data);
+        g_assert_cmpstr( (char *)first->data, ==, (char *)last_retrieved->data);
 
         data_burst *nonexistant = as_retrieve_from_file( f->df );
         g_assert ( !nonexistant );
@@ -55,7 +55,7 @@ void defer_then_read( fixture *f, gconstpointer td ){
 void defer_unlink_then_read( fixture *f, gconstpointer td ){
         data_burst *first = malloc( sizeof( data_burst ) );
         first->data = malloc( 6 );
-        strcpy( first->data, "first" );
+        memcpy(first->data,"first", 6);
         first->length = 6;
 
         as_defer_to_file( f->df, first );
@@ -69,7 +69,7 @@ void defer_unlink_then_read( fixture *f, gconstpointer td ){
 void unlink_defer_then_read( fixture *f, gconstpointer td ){
         data_burst *first = malloc( sizeof( data_burst ) );
         first->data = malloc( 6 );
-        strcpy( first->data, "first" );
+        memcpy(first->data,"first", 6);
         first->length = 6;
 
         unlink( f->df->path );
@@ -77,7 +77,7 @@ void unlink_defer_then_read( fixture *f, gconstpointer td ){
         data_burst *first_retrieved = as_retrieve_from_file( f->df );
         g_assert( first_retrieved );
         g_assert_cmpuint( first->length, ==, first_retrieved->length);
-        g_assert_cmpstr( first->data, ==, first_retrieved->data);
+        g_assert_cmpstr( (char *)first->data, ==, (char *)first_retrieved->data);
 
         free_databurst( first );
         free_databurst( first_retrieved );
