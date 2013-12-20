@@ -216,12 +216,15 @@ static void *queue_loop( void *args_ptr ) {
                                , "queue_loop: zmq_msg_recv: '%s'"
                                , strerror( errno ) );
 
+                        putchar('.');
                         queue = g_slist_append( queue, message );
                         // Defer closing for send_upstream
                 }
 
                 if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
                         g_timer_reset(timer);
+
+                        printf("\nRetrieving deferred bursts from disk.\n");
                         // And from the dead, a wild databurst appears!
                         data_burst *zombie =
                                 as_retrieve_from_file( args->deferral_file );
@@ -232,6 +235,8 @@ static void *queue_loop( void *args_ptr ) {
                         }
 
                         if( !queue ) continue; // Nothing to do
+
+                        printf( "Flushing %d from queue.\n", g_slist_length( queue ) );
 
                         // This iterates over the entire list, passing each
                         // element to accumulate_databursts
@@ -250,9 +255,11 @@ static void *queue_loop( void *args_ptr ) {
                                                         , burst->data );
                         free( frames );
 
+                        printf( "All packed up, sending over the wire.\n" );
                         try_send_upstream( burst
                                          , args->upstream_connection
                                          , args->deferral_file );
+                        printf( "done, polling for more events\n" );
                 }
 
         }
