@@ -216,8 +216,8 @@ static void *queue_loop( void *args_ptr ) {
                                , "queue_loop: zmq_msg_recv: '%s'"
                                , strerror( errno ) );
 
-                        queue = g_slist_append( queue, message );
-                        // Defer closing for send_upstream
+                        // Prepend here so as to not traverse the entire list.
+                        queue = g_slist_prepend( queue, message );
                 }
 
                 if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
@@ -236,7 +236,9 @@ static void *queue_loop( void *args_ptr ) {
                         // This iterates over the entire list, passing each
                         // element to accumulate_databursts
                         guint queue_length = g_slist_length( queue );
-                        g_slist_foreach( queue, (GFunc)accumulate_databursts, &queue_length );
+                        g_slist_foreach( g_slist_reverse( queue )
+                                       , (GFunc)accumulate_databursts
+                                       , &queue_length );
                         g_slist_free( queue );
                         queue = NULL;
 
