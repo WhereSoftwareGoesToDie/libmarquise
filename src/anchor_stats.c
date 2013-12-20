@@ -229,7 +229,6 @@ static void *queue_loop( void *args_ptr ) {
                                 try_send_upstream( zombie
                                                  , args->upstream_connection
                                                  , args->deferral_file );
-                                free_databurst( zombie );
                         }
 
                         if( !queue ) continue; // Nothing to do
