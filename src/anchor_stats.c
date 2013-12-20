@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <zmq.h>
 #include <stdio.h>
 #include <glib.h>
@@ -273,7 +274,7 @@ static void *queue_loop( void *args_ptr ) {
 
         // Ensure that any messages deferred to disk are sent.
         data_burst *remaining;
-        while( remaining = as_retrieve_from_file( args->deferral_file) ) {
+        while( (remaining = as_retrieve_from_file( args->deferral_file)) ) {
                 try_send_upstream( remaining
                                  , args->upstream_connection
                                  , args->deferral_file );
@@ -356,7 +357,7 @@ int as_send_text( as_connection connection
                                       , DATA_FRAME__TYPE__TEXT );
         if( !frame ) return -1 ;
         frame->value_textual = data;
-        as_send_frame( connection, frame );
+        return as_send_frame( connection, frame );
 }
 
 int as_send_int( as_connection connection
