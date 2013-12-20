@@ -159,7 +159,7 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
 }
 
 // This function either sends the message or defers it. There is no try.
-static void try_send_upstream(data_burst *burst, void *connection, deferral_file *df) {
+static void try_send_upstream(data_burst *burst, void *connection, deferral_file *df ) {
         fail_if( zmq_send( connection
                          , burst->data
                          , burst->length
@@ -169,6 +169,28 @@ static void try_send_upstream(data_burst *burst, void *connection, deferral_file
         free_databurst( burst );
 }
 
+static void send_queue( GSList **queue, void *connection, deferral_file *df ) {
+                        // This iterates over the entire list, passing each
+                        // element to accumulate_databursts
+                        guint queue_length = g_slist_length( *queue );
+                        g_slist_foreach( g_slist_reverse( *queue )
+                                       , (GFunc)accumulate_databursts
+                                       , &queue_length );
+                        g_slist_free( *queue );
+                        *queue = NULL;
+
+                        frame *frames = accumulate_databursts( NULL, NULL );
+                        data_burst *burst = malloc( sizeof( data_burst ) );
+                        size_t max_burst_length =
+                                get_databurst_size( frames, queue_length );
+                        burst->data = malloc( max_burst_length );
+                        burst->length = aggregate_frames( frames
+                                                        , queue_length
+                                                        , burst->data );
+                        free( frames );
+
+                        try_send_upstream( burst, connection, df );
+}
 
 // Listen for events, queue them up for the specified time and then send them
 // to the specified broker.
@@ -231,35 +253,23 @@ static void *queue_loop( void *args_ptr ) {
                                                  , args->deferral_file );
                         }
 
-                        if( !queue ) continue; // Nothing to do
+                        if( queue ) send_queue( &queue
+                                              , args->upstream_connection
+                                              , args->deferral_file );
 
-                        // This iterates over the entire list, passing each
-                        // element to accumulate_databursts
-                        guint queue_length = g_slist_length( queue );
-                        g_slist_foreach( g_slist_reverse( queue )
-                                       , (GFunc)accumulate_databursts
-                                       , &queue_length );
-                        g_slist_free( queue );
-                        queue = NULL;
-
-                        frame *frames = accumulate_databursts( NULL, NULL );
-                        data_burst *burst = malloc( sizeof( data_burst ) );
-                        size_t max_burst_length =
-                                get_databurst_size( frames, queue_length );
-                        burst->data = malloc( max_burst_length );
-                        burst->length = aggregate_frames( frames
-                                                        , queue_length
-                                                        , burst->data );
-                        free( frames );
-
-                        try_send_upstream( burst
-                                         , args->upstream_connection
-                                         , args->deferral_file );
-                }
+               }
 
         }
 
         g_timer_destroy( timer );
+
+        // Flush the queue one last time before exit.
+        if( queue ) send_queue( &queue
+                                , args->upstream_connection
+                                , args->deferral_file );
+
+        // https://github.com/zeromq/libzmq/issues/795
+        usleep( 10000 );
 
         // Ensure that any messages deferred to disk are sent.
         data_burst *remaining;
@@ -270,9 +280,9 @@ static void *queue_loop( void *args_ptr ) {
         }
 
         // All messages are sent, including those deferred to disk. It's safe
-        // to destroy the context and close the socket.
+        // to destroy the context and close the socket.  Will block here untill
+        // the last message is on the wire.
         zmq_close( args->upstream_connection );
-        // Will block here untill the last message is on the wire.
         zmq_ctx_destroy( args->upstream_context );
 
         as_deferral_file_close( args->deferral_file );
