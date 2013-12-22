@@ -280,9 +280,6 @@ static void *queue_loop( void *args_ptr ) {
                                  , args->deferral_file );
         }
 
-        // https://github.com/zeromq/libzmq/issues/795
-        usleep( 10000 );
-
         // All messages are sent, including those deferred to disk. It's safe
         // to destroy the context and close the socket.  Will block here untill
         // the last message is on the wire.
