@@ -12,7 +12,7 @@ typedef struct {
 } fixture;
 
 void setup( fixture *f, gconstpointer td ){
-        f->context = as_consumer_new("ipc:///tmp/as_full_stack_test", 0.1);
+        f->context = as_consumer_new("ipc:///tmp/as_full_stack_test", 1);
         g_assert( f->context );
         f->connection = as_connect(f->context);
         g_assert( f->connection );
@@ -33,7 +33,7 @@ void one_message( fixture *f, gconstpointer td ){
         // Now start up the server and expect them all.
         void *context = zmq_ctx_new();
         g_assert( context );
-        void *bind_sock = zmq_socket( context, ZMQ_PULL );
+        void *bind_sock = zmq_socket( context, ZMQ_REP );
         g_assert( bind_sock );
         g_assert( !zmq_bind( bind_sock, "ipc:///tmp/as_full_stack_test" ) );
 
@@ -41,6 +41,7 @@ void one_message( fixture *f, gconstpointer td ){
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
         g_assert_cmpint( recieved, ==, 27 );
         free( scratch );
+        g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
         zmq_close( bind_sock );
         zmq_ctx_destroy( context );
@@ -52,7 +53,7 @@ void many_messages( fixture *f, gconstpointer td ){
         // difference there.
         void *context = zmq_ctx_new();
         g_assert( context );
-        void *bind_sock = zmq_socket( context, ZMQ_PULL );
+        void *bind_sock = zmq_socket( context, ZMQ_REP );
         g_assert( bind_sock );
         g_assert( !zmq_bind( bind_sock, "ipc:///tmp/as_full_stack_test" ) );
 
@@ -73,19 +74,11 @@ void many_messages( fixture *f, gconstpointer td ){
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
         g_assert_cmpint( recieved, ==, 221184 );
         free( scratch );
+        g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
         zmq_close( bind_sock );
         zmq_ctx_destroy( context );
 }
-
-
-// The aim here is to test a bunch of messages being sent without an upstream
-// connection, so many that we are forced to defer to disk to save memory.
-//
-// Then we bring back the upstream connection and have all of the messages come
-// through intact.
-void defer_to_disk( fixture *f, gconstpointer td );
-
 
 int main( int argc, char **argv ){
         g_test_init( &argc, &argv, NULL);

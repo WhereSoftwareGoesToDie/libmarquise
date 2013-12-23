@@ -8,6 +8,7 @@ typedef struct {
 } deferral_file;
 
 typedef struct {
+        char *broker;
         void *context;
         void *queue_connection;
         void *upstream_context;
