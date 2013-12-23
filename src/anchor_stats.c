@@ -54,8 +54,8 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
                    , "zmq_bind: '%s'"
                    , strerror( errno ) );
 
-        // Set up the upstream PUSH socket.
-        void *upstream_connection = zmq_socket( upstream_context, ZMQ_PUSH );
+        // Set up the upstream REQ socket.
+        void *upstream_connection = zmq_socket( upstream_context, ZMQ_REQ );
         ctx_fail_if( !queue_connection
                    , zmq_close( queue_connection );
                    , "zmq_socket: '%s'"
@@ -71,12 +71,34 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         // After this many poll periods have elapsed, zmq_sendmsg will start
         // returning EAGAIN and we will start deferring further messages to
         // disk to save memory.
-        int hwm = 120;
+        int hwm = 1;
 
         ctx_fail_if( zmq_setsockopt( upstream_connection, ZMQ_SNDHWM, &hwm, sizeof( hwm ) )
                    , zmq_close( queue_connection );
                      zmq_close( upstream_connection );
                    , "zmq_setsockopt ZMQ_HWM: '%s'"
+                   , strerror( errno ) );
+
+        // Milliseconds
+        int send_timeout = 1000;
+        ctx_fail_if( zmq_setsockopt( upstream_connection
+                                   , ZMQ_SNDTIMEO
+                                   , &send_timeout
+                                   , sizeof( send_timeout ) )
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "zmq_setsockopt ZMQ_SNDTIMEO: '%s'"
+                   , strerror( errno ) );
+
+        // Milliseconds
+        int recv_timeout = 1000;
+        ctx_fail_if( zmq_setsockopt( upstream_connection
+                                   , ZMQ_RCVTIMEO
+                                   , &recv_timeout
+                                   , sizeof( recv_timeout ) )
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "zmq_setsockopt ZMQ_SNDTIMEO: '%s'"
                    , strerror( errno ) );
 
         // Our new thread gets it's own copy of the zmq context, a brand new
@@ -162,12 +184,24 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
 
 // This function either sends the message or defers it. There is no try.
 static void try_send_upstream(data_burst *burst, void *connection, deferral_file *df ) {
+        // This will timeout due to ZMQ_SNDTIMEO being set on the socket.
         fail_if( zmq_send( connection
                          , burst->data
                          , burst->length
-                         , ZMQ_DONTWAIT) == -1
+                         , 0 ) == -1
                , as_defer_to_file( df, burst ); free_databurst( burst ); return;
                , "deferred message to disk: '%s'", strerror( errno ) );
+
+        // This will timeout also due to ZMQ_RCVTIMEO
+        zmq_msg_t response;
+        zmq_msg_init( &response );
+        fail_if( zmq_msg_recv( &response, connection, 0 ) == -1
+               , as_defer_to_file( df, burst ); free_databurst( burst ); return;
+               , "deferred message to disk: '%s'", strerror( errno ) );
+
+        // This may in future contain something useful, like a hash of the
+        // message that we can verify.
+        zmq_msg_close( &response );
         free_databurst( burst );
 }
 
@@ -214,7 +248,7 @@ static void *queue_loop( void *args_ptr ) {
         };
 
         while( 1 ) {
-                if( zmq_poll (items, 1, poll_ms) == -1 ) {
+                if( zmq_poll( items, 1, poll_ms ) == -1 ) {
                         // Oh god what? We should only ever get an ETERM.
                         if( errno != ETERM ) {
                                 syslog( LOG_ERR
@@ -229,7 +263,7 @@ static void *queue_loop( void *args_ptr ) {
                         break;
                 }
 
-                if (items [0].revents & ZMQ_POLLIN) {
+                if ( items [0].revents & ZMQ_POLLIN ) {
                         zmq_msg_t *message = malloc( sizeof( zmq_msg_t ) );
                         if( !message ) continue;
                         zmq_msg_init( message );
