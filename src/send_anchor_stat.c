@@ -7,7 +7,7 @@
 #include "assert.h"
 
 int main () {
-        as_consumer consumer     = as_consumer_new("tcp://localhost:1234", 1 );
+        as_consumer consumer     = as_consumer_new("tcp://localhost:5559", 1 );
         assert( consumer );
         as_connection connection = as_connect(consumer);
         assert( connection );

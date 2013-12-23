@@ -19,6 +19,49 @@
 
 static void *queue_loop ( void *queue_socket );
 
+static void *connect_upstream_socket( void *context, char *broker ) {
+        // Set up the upstream REQ socket.
+        void *upstream_connection = zmq_socket( context, ZMQ_REQ );
+
+        fail_if( zmq_connect( upstream_connection, broker )
+                   , zmq_close( upstream_connection ); return NULL;
+                   , "zmq_connect: '%s'"
+                   , strerror( errno ) );
+
+        // We want to be explicit about the internal high water mark:
+        // After this many poll periods have elapsed, zmq_sendmsg will start
+        // returning EAGAIN and we will start deferring further messages to
+        // disk to save memory.
+        int one = 1;
+
+        fail_if( zmq_setsockopt( upstream_connection, ZMQ_SNDHWM, &one, sizeof( one ) )
+                   , zmq_close( upstream_connection );
+                   , "zmq_setsockopt ZMQ_HWM: '%s'"
+                   , strerror( errno ) );
+
+        // Milliseconds
+        int timeout = 1000;
+        fail_if( zmq_setsockopt( upstream_connection
+                                   , ZMQ_SNDTIMEO
+                                   , &timeout
+                                   , sizeof( timeout ) )
+                   , zmq_close( upstream_connection ); return NULL;
+                   , "zmq_setsockopt ZMQ_SNDTIMEO: '%s'"
+                   , strerror( errno ) );
+
+        // Milliseconds
+        fail_if( zmq_setsockopt( upstream_connection
+                                   , ZMQ_RCVTIMEO
+                                   , &timeout
+                                   , sizeof( timeout ) )
+                   , zmq_close( upstream_connection ); return NULL;
+                   , "zmq_setsockopt ZMQ_SNDTIMEO: '%s'"
+                   , strerror( errno ) );
+
+        return upstream_connection;
+}
+
+
 #define ctx_fail_if( assertion, action, ... )         \
         fail_if( assertion                            \
                , { action };                          \
@@ -26,6 +69,7 @@ static void *queue_loop ( void *queue_socket );
                  zmq_ctx_destroy( upstream_context ); \
                  return NULL;                         \
                , "as_consumer_new: " __VA_ARGS__ );   \
+
 
 as_consumer as_consumer_new( char *broker, double poll_period ) {
         // This context is used for fast inprocess communication, we pass it to
@@ -54,52 +98,14 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
                    , "zmq_bind: '%s'"
                    , strerror( errno ) );
 
-        // Set up the upstream REQ socket.
-        void *upstream_connection = zmq_socket( upstream_context, ZMQ_REQ );
-        ctx_fail_if( !queue_connection
-                   , zmq_close( queue_connection );
-                   , "zmq_socket: '%s'"
-                   , strerror( errno ) );
-
-        ctx_fail_if( zmq_connect( upstream_connection, broker )
-                   , zmq_close( queue_connection );
-                     zmq_close( upstream_connection );
-                   , "zmq_connect: '%s'"
-                   , strerror( errno ) );
-
-        // We want to be explicit about the internal high water mark:
-        // After this many poll periods have elapsed, zmq_sendmsg will start
-        // returning EAGAIN and we will start deferring further messages to
-        // disk to save memory.
-        int hwm = 1;
-
-        ctx_fail_if( zmq_setsockopt( upstream_connection, ZMQ_SNDHWM, &hwm, sizeof( hwm ) )
-                   , zmq_close( queue_connection );
-                     zmq_close( upstream_connection );
-                   , "zmq_setsockopt ZMQ_HWM: '%s'"
-                   , strerror( errno ) );
-
-        // Milliseconds
-        int send_timeout = 1000;
-        ctx_fail_if( zmq_setsockopt( upstream_connection
-                                   , ZMQ_SNDTIMEO
-                                   , &send_timeout
-                                   , sizeof( send_timeout ) )
-                   , zmq_close( queue_connection );
-                     zmq_close( upstream_connection );
-                   , "zmq_setsockopt ZMQ_SNDTIMEO: '%s'"
-                   , strerror( errno ) );
-
-        // Milliseconds
-        int recv_timeout = 1000;
-        ctx_fail_if( zmq_setsockopt( upstream_connection
-                                   , ZMQ_RCVTIMEO
-                                   , &recv_timeout
-                                   , sizeof( recv_timeout ) )
-                   , zmq_close( queue_connection );
-                     zmq_close( upstream_connection );
-                   , "zmq_setsockopt ZMQ_SNDTIMEO: '%s'"
-                   , strerror( errno ) );
+        // We set this upstream socket up here only to fail early.
+        void *upstream_connection = connect_upstream_socket( upstream_context, broker );
+        if( !upstream_connection ) {
+                zmq_close( queue_connection );
+                zmq_ctx_destroy( context );
+                zmq_ctx_destroy( upstream_context );
+                return NULL;
+        }
 
         // Our new thread gets it's own copy of the zmq context, a brand new
         // shiny PULL inproc socket, and the broker that the user would like to
@@ -121,6 +127,12 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
                      zmq_close( upstream_connection );
                    , "mkstemp: '%s'"
                    , strerror( errno ) );
+        args->broker = malloc( strlen( broker ) + 1 );
+        ctx_fail_if( !args
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "malloc()" );
+        strcpy( args->broker, broker );
 
         pthread_t queue_pthread;
         int err = pthread_create( &queue_pthread
@@ -183,21 +195,29 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
 }
 
 // This function either sends the message or defers it. There is no try.
-static void try_send_upstream(data_burst *burst, void *connection, deferral_file *df ) {
+static void try_send_upstream(data_burst *burst, queue_args *args ) {
         // This will timeout due to ZMQ_SNDTIMEO being set on the socket.
-        fail_if( zmq_send( connection
+        fail_if( zmq_send( args->upstream_connection
                          , burst->data
                          , burst->length
                          , 0 ) == -1
-               , as_defer_to_file( df, burst ); free_databurst( burst ); return;
-               , "deferred message to disk: '%s'", strerror( errno ) );
+               , as_defer_to_file( args->deferral_file, burst ); free_databurst( burst ); return;
+               , "sending message: '%s'", strerror( errno ) );
 
         // This will timeout also due to ZMQ_RCVTIMEO
         zmq_msg_t response;
         zmq_msg_init( &response );
-        fail_if( zmq_msg_recv( &response, connection, 0 ) == -1
-               , as_defer_to_file( df, burst ); free_databurst( burst ); return;
-               , "deferred message to disk: '%s'", strerror( errno ) );
+        fail_if( zmq_msg_recv( &response, args->upstream_connection, 0 ) == -1
+               , as_defer_to_file( args->deferral_file, burst );
+                 free_databurst( burst );
+                 // If a recv fails, we need to reset the connection or the
+                 // state machine will be out of step.
+                 zmq_close( args->upstream_connection );
+                 args->upstream_connection = connect_upstream_socket(
+                           args->upstream_context
+                         , args->broker );
+                 return;
+               , "receiving ack: '%s'", strerror( errno ) );
 
         // This may in future contain something useful, like a hash of the
         // message that we can verify.
@@ -205,27 +225,27 @@ static void try_send_upstream(data_burst *burst, void *connection, deferral_file
         free_databurst( burst );
 }
 
-static void send_queue( GSList **queue, void *connection, deferral_file *df ) {
-                        // This iterates over the entire list, passing each
-                        // element to accumulate_databursts
-                        guint queue_length = g_slist_length( *queue );
-                        g_slist_foreach( g_slist_reverse( *queue )
-                                       , (GFunc)accumulate_databursts
-                                       , &queue_length );
-                        g_slist_free( *queue );
-                        *queue = NULL;
+static void send_queue( GSList **queue, queue_args *args ) {
+        // This iterates over the entire list, passing each
+        // element to accumulate_databursts
+        guint queue_length = g_slist_length( *queue );
+        g_slist_foreach( g_slist_reverse( *queue )
+                        , (GFunc)accumulate_databursts
+                        , &queue_length );
+        g_slist_free( *queue );
+        *queue = NULL;
 
-                        frame *frames = accumulate_databursts( NULL, NULL );
-                        data_burst *burst = malloc( sizeof( data_burst ) );
-                        size_t max_burst_length =
-                                get_databurst_size( frames, queue_length );
-                        burst->data = malloc( max_burst_length );
-                        burst->length = aggregate_frames( frames
-                                                        , queue_length
-                                                        , burst->data );
-                        free( frames );
+        frame *frames = accumulate_databursts( NULL, NULL );
+        data_burst *burst = malloc( sizeof( data_burst ) );
+        size_t max_burst_length =
+                get_databurst_size( frames, queue_length );
+        burst->data = malloc( max_burst_length );
+        burst->length = aggregate_frames( frames
+                                        , queue_length
+                                        , burst->data );
+        free( frames );
 
-                        try_send_upstream( burst, connection, df );
+        try_send_upstream( burst, args );
 }
 
 // Listen for events, queue them up for the specified time and then send them
@@ -284,16 +304,11 @@ static void *queue_loop( void *args_ptr ) {
                         // And from the dead, a wild databurst appears!
                         data_burst *zombie =
                                 as_retrieve_from_file( args->deferral_file );
-                        if( zombie ) {
-                                try_send_upstream( zombie
-                                                 , args->upstream_connection
-                                                 , args->deferral_file );
-                        }
+                        if( zombie )
+                                try_send_upstream( zombie, args );
 
-                        if( queue ) send_queue( &queue
-                                              , args->upstream_connection
-                                              , args->deferral_file );
-
+                        if( queue )
+                                send_queue( &queue, args );
                }
 
         }
@@ -301,17 +316,14 @@ static void *queue_loop( void *args_ptr ) {
         g_timer_destroy( timer );
 
         // Flush the queue one last time before exit.
-        if( queue ) send_queue( &queue
-                                , args->upstream_connection
-                                , args->deferral_file );
+        if( queue ) send_queue( &queue, args );
 
 
         // Ensure that any messages deferred to disk are sent.
         data_burst *remaining;
         while( (remaining = as_retrieve_from_file( args->deferral_file)) ) {
-                try_send_upstream( remaining
-                                 , args->upstream_connection
-                                 , args->deferral_file );
+                usleep( poll_ms * 1000 );
+                try_send_upstream( remaining, args );
         }
 
         // All messages are sent, including those deferred to disk. It's safe

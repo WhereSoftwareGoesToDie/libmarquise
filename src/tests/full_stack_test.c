@@ -12,7 +12,7 @@ typedef struct {
 } fixture;
 
 void setup( fixture *f, gconstpointer td ){
-        f->context = as_consumer_new("ipc:///tmp/as_full_stack_test", 0.1);
+        f->context = as_consumer_new("ipc:///tmp/as_full_stack_test", 1);
         g_assert( f->context );
         f->connection = as_connect(f->context);
         g_assert( f->connection );
@@ -79,15 +79,6 @@ void many_messages( fixture *f, gconstpointer td ){
         zmq_close( bind_sock );
         zmq_ctx_destroy( context );
 }
-
-
-// The aim here is to test a bunch of messages being sent without an upstream
-// connection, so many that we are forced to defer to disk to save memory.
-//
-// Then we bring back the upstream connection and have all of the messages come
-// through intact.
-void defer_to_disk( fixture *f, gconstpointer td );
-
 
 int main( int argc, char **argv ){
         g_test_init( &argc, &argv, NULL);
