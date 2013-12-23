@@ -34,6 +34,4 @@ AC_CONFIG_FILES([
  Makefile
  src/Makefile
 ])
-autoreconf -i src/libmdp
-AC_CONFIG_SUBDIRS([src/libmdp])
 AC_OUTPUT

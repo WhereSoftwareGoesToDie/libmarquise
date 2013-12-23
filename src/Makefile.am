@@ -1,6 +1,5 @@
 AM_CFLAGS  = -g -pthread -Wall $(GLIB_2_CFLAGS) # $(PROTOBUF_C_CFLAGS)
 AM_LDFLAGS = $(GLIB_2_LIBS) -lprotobuf-c # $(PROTOBUF_C_LIBS) -- debian bug #731726
-SUBDIRS = libmdp
 
 lib_LTLIBRARIES = libanchor_stats.la
 libanchor_stats_la_SOURCES = \

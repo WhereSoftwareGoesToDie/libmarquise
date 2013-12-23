@@ -214,7 +214,7 @@ static void *queue_loop( void *args_ptr ) {
         };
 
         while( 1 ) {
-                if( zmq_poll (items, 1, 100) == -1 ) {
+                if( zmq_poll (items, 1, poll_ms) == -1 ) {
                         // Oh god what? We should only ever get an ETERM.
                         if( errno != ETERM ) {
                                 syslog( LOG_ERR
