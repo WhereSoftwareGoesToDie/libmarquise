@@ -9,7 +9,8 @@ typedef void *as_connection;
 //
 // broker is to be specified as a zmq URI
 //
-// poll_period is the number of seconds, e.g. 1.3
+// batch_period is the interval (in seconds) at which the worker thread
+// will poll and empty the queue.
 //
 // Failure almost certainly means catastrophic failure, do not retry on
 // failure, check syslog.
