@@ -61,7 +61,6 @@ static void *connect_upstream_socket( void *context, char *broker ) {
         return upstream_connection;
 }
 
-
 #define ctx_fail_if( assertion, action, ... )         \
         fail_if( assertion                            \
                , { action };                          \
@@ -69,7 +68,6 @@ static void *connect_upstream_socket( void *context, char *broker ) {
                  zmq_ctx_destroy( upstream_context ); \
                  return NULL;                         \
                , "as_consumer_new: " __VA_ARGS__ );   \
-
 
 as_consumer as_consumer_new( char *broker, double poll_period ) {
         // This context is used for fast inprocess communication, we pass it to
@@ -212,6 +210,11 @@ static void try_send_upstream(data_burst *burst, queue_args *args ) {
                  free_databurst( burst );
                  // If a recv fails, we need to reset the connection or the
                  // state machine will be out of step.
+                 int linger = 0;
+                 zmq_setsockopt( args->upstream_connection
+                               , ZMQ_LINGER
+                               , &linger
+                               , sizeof( linger ) );
                  zmq_close( args->upstream_connection );
                  args->upstream_connection = connect_upstream_socket(
                            args->upstream_context
