@@ -1,4 +1,4 @@
-AC_INIT([libmarquise], [0.0.1], [pingu@anchor.net.au])
+AC_INIT([libmarquise], [1.0.0], [pingu@anchor.net.au])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([subdir-objects])
 LT_INIT
