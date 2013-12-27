@@ -40,4 +40,4 @@ src/tests/.deps/
 src/tests/.dirstamp
 src/tests/defer_file_test
 *.log
-
+*.tar.gz
