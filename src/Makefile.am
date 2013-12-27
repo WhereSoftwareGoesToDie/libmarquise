@@ -11,14 +11,12 @@ libmarquise_la_SOURCES = \
 	varint.c \
 	lz4/lz4.c
 include_HEADERS = marquise.h frame.h varint.h
-dist_noinst_HEADERS = defer.h macros.h structs.h frame.h varint.h
-
+dist_noinst_HEADERS = defer.h macros.h structs.h frame.h varint.h protobuf/*.h
 
 bin_PROGRAMS = send_anchor_stat
 send_anchor_stat_SOURCES = send_anchor_stat.c
 send_anchor_stat_LDADD = libmarquise.la
 
-dist_noinst_DATA = protobuf/DataBurst.proto protobuf/DataFrame.proto
 %.pb-c.c %.pb-c.h: %.proto
 	    $(PROTOC_C) --proto_path=$(srcdir)/protobuf --c_out=$(builddir)/protobuf $^
 
