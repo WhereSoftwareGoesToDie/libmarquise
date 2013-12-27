@@ -11,6 +11,8 @@ libmarquise_la_SOURCES = \
 	varint.c \
 	lz4/lz4.c
 include_HEADERS = marquise.h frame.h varint.h
+dist_noinst_HEADERS = defer.h macros.h structs.h frame.h varint.h
+
 
 bin_PROGRAMS = send_anchor_stat
 send_anchor_stat_SOURCES = send_anchor_stat.c
