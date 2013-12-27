@@ -4,7 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
-#include "../anchor_stats.h"
+#include "../marquise.h"
 
 void valid_arguments() {
         as_consumer c = as_consumer_new( "tcp://localhost:1234", 0.5 );

@@ -1,4 +1,4 @@
-AC_INIT([libanchor_stats], [0.0.1], [pingu@anchor.net.au])
+AC_INIT([libmarquise], [0.0.1], [pingu@anchor.net.au])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([subdir-objects])
 LT_INIT

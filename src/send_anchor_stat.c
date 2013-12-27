@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include "anchor_stats.h"
+#include "marquise.h"
 #include "assert.h"
 
 int main () {

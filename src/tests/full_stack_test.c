@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "../anchor_stats.h"
+#include "../marquise.h"
 #include <zmq.h>
 
 typedef struct {
