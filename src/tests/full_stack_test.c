@@ -41,8 +41,8 @@ void one_message( fixture *f, gconstpointer td ){
         char *scratch = malloc(512);
         char *decompressed = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 29 );
-        int bytes = LZ4_decompress_safe( scratch, decompressed, 29, 512 );
+        g_assert_cmpint( recieved, ==, 37 );
+        int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (37 - 8), 512 );
         g_assert_cmpint( bytes, ==, 27 );
         free( scratch );
         free( decompressed );
@@ -78,9 +78,9 @@ void many_messages( fixture *f, gconstpointer td ){
         char *scratch = malloc(1024);
         char *decompressed = malloc(300000);
         int recieved = zmq_recv( bind_sock, scratch, 1024, 0 );
-        g_assert_cmpint( recieved, ==,  902 );
+        g_assert_cmpint( recieved, ==,  910 );
 
-        int bytes = LZ4_decompress_safe( scratch, decompressed, 902, 300000 );
+        int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (910 - 8), 300000 );
         g_assert_cmpint( bytes, ==, 221184 );
 
         free( scratch );
@@ -101,7 +101,7 @@ static void *server( void *args ) {
 
         char *scratch = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 29 );
+        g_assert_cmpint( recieved, ==, 37 );
         free( scratch );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 

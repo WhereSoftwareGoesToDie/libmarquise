@@ -19,6 +19,7 @@ config.log
 config.status
 libtool
 src/.deps/
+src/lz4-r109/.deps/
 src/Makefile
 stamp-h1
 m4/

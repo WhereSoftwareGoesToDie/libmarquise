@@ -14,6 +14,7 @@
 #include <glib.h>
 #include <sys/mman.h>
 #include "lz4/lz4.h"
+#include "lz4/lz4hc.h"
 #include <string.h>
 #include <math.h>
 
@@ -230,16 +231,33 @@ static void try_send_upstream(data_burst *burst, queue_args *args ) {
         free_databurst( burst );
 }
 
+// Bit twiddling is to support big endian architectures only. Really we are
+// just writing two little endian uint32_t's which represent the original
+// length, and the compressed length. The compressed data follows.
+char *add_header( uint8_t *dest, uint32_t original_len, uint32_t data_len ) {
+        dest[3]= (original_len >> 24) & 0xff;
+        dest[2]= (original_len >> 16) & 0xff;
+        dest[1]= (original_len >> 8)  & 0xff;
+        dest[0]=  original_len        & 0xff;
+
+        dest[7]= (data_len >> 24) & 0xff;
+        dest[6]= (data_len >> 16) & 0xff;
+        dest[5]= (data_len >> 8)  & 0xff;
+        dest[4]=  data_len        & 0xff;
+}
+
 // Returns -1 on failure, 0 on success
 static int compress_burst( data_burst *burst ) {
         uint8_t *uncompressed = burst->data;
-        burst->data = malloc( LZ4_compressBound( burst->length ) );
+        // + 8 for the serialized data.
+        burst->data = malloc( LZ4_compressBound( burst->length ) + 8 );
         if( !burst->data ) return -1;
-        int written = LZ4_compress( (char *)uncompressed
-                                  , (char *)burst->data
+        int written = LZ4_compressHC( (char *)uncompressed
+                                  , (char *)burst->data + 8
                                   , (int)burst->length );
         if( !written ) return -1;
-        burst->length = (size_t)written;
+        add_header( burst->data, burst->length, written );
+        burst->length = (size_t)written + 8;
         free( uncompressed );
         return 0;
 }

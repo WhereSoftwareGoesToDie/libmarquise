@@ -10,7 +10,8 @@ libmarquise_la_SOURCES = \
 	frame.c \
 	defer.c \
 	varint.c \
-	lz4/lz4.c
+	lz4/lz4.c \
+	lz4/lz4hc.c
 include_HEADERS = marquise.h
 dist_noinst_HEADERS = defer.h \
 		      macros.h \
