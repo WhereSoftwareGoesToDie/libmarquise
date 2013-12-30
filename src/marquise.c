@@ -40,7 +40,7 @@ static void *connect_upstream_socket( void *context, char *broker ) {
                    , strerror( errno ) );
 
         // Milliseconds
-        int timeout = 1000;
+        int timeout = 10000;
         fail_if( zmq_setsockopt( upstream_connection
                                    , ZMQ_SNDTIMEO
                                    , &timeout
