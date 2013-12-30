@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include "../marquise.h"
+#include "../lz4/lz4.h"
 #include <zmq.h>
 
 typedef struct {
@@ -38,9 +39,13 @@ void one_message( fixture *f, gconstpointer td ){
         g_assert( !zmq_bind( bind_sock, "ipc:///tmp/as_full_stack_test" ) );
 
         char *scratch = malloc(512);
+        char *decompressed = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 27 );
+        g_assert_cmpint( recieved, ==, 29 );
+        int bytes = LZ4_decompress_safe( scratch, decompressed, 29, 512 );
+        g_assert_cmpint( bytes, ==, 27 );
         free( scratch );
+        free( decompressed );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
         zmq_close( bind_sock );
@@ -70,10 +75,17 @@ void many_messages( fixture *f, gconstpointer td ){
                                      , 10
                                      , 20 ) != -1 );
 
-        char *scratch = malloc(512);
-        int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 221184 );
+        char *scratch = malloc(1024);
+        char *decompressed = malloc(300000);
+        int recieved = zmq_recv( bind_sock, scratch, 1024, 0 );
+        g_assert_cmpint( recieved, ==,  902 );
+
+        int bytes = LZ4_decompress_safe( scratch, decompressed, 902, 300000 );
+        g_assert_cmpint( bytes, ==, 221184 );
+
         free( scratch );
+        free( decompressed );
+
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
         zmq_close( bind_sock );
@@ -89,7 +101,7 @@ static void *server( void *args ) {
 
         char *scratch = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 27 );
+        g_assert_cmpint( recieved, ==, 29 );
         free( scratch );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 

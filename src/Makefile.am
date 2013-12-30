@@ -41,7 +41,7 @@ check_PROGRAMS=\
 	varint_test \
 	full_stack_test
 
-defer_file_test_SOURCES = tests/defer_file_test.c
+defer_file_test_SOURCES = tests/defer_file_test.c 
 defer_file_test_LDADD = libmarquise.la
 
 as_consumer_new_test_SOURCES = tests/as_consumer_new_test.c

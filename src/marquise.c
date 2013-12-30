@@ -199,7 +199,9 @@ static void try_send_upstream(data_burst *burst, queue_args *args ) {
                          , burst->data
                          , burst->length
                          , 0 ) == -1
-               , as_defer_to_file( args->deferral_file, burst ); free_databurst( burst ); return;
+               , as_defer_to_file( args->deferral_file, burst );
+                 free_databurst( burst );
+                 return;
                , "sending message: '%s'", strerror( errno ) );
 
         // This will timeout also due to ZMQ_RCVTIMEO
@@ -228,6 +230,20 @@ static void try_send_upstream(data_burst *burst, queue_args *args ) {
         free_databurst( burst );
 }
 
+// Returns -1 on failure, 0 on success
+static int compress_burst( data_burst *burst ) {
+        uint8_t *uncompressed = burst->data;
+        burst->data = malloc( LZ4_compressBound( burst->length ) );
+        if( !burst->data ) return -1;
+        int written = LZ4_compress( (char *)uncompressed
+                                  , (char *)burst->data
+                                  , (int)burst->length );
+        if( !written ) return -1;
+        burst->length = (size_t)written;
+        free( uncompressed );
+        return 0;
+}
+
 static void send_queue( GSList **queue, queue_args *args ) {
         // This iterates over the entire list, passing each
         // element to accumulate_databursts
@@ -247,6 +263,9 @@ static void send_queue( GSList **queue, queue_args *args ) {
                                         , queue_length
                                         , burst->data );
         free( frames );
+        fail_if( compress_burst( burst )
+               , return;
+               , "lz4 compression failed" );
 
         try_send_upstream( burst, args );
 }
