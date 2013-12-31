@@ -404,6 +404,7 @@ marquise_connection marquise_connect( marquise_consumer consumer ) {
 }
 
 void marquise_close( marquise_connection connection ) {
+        usleep( 10000 );
         zmq_close( connection );
 }
 
