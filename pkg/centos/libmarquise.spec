@@ -61,9 +61,9 @@ rm -rf %{buildroot}
 %{_libdir}/libmarquise.la
 
 %changelog
-* Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0-0anchor1
+* Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0.2-0anchor1
 - Bump to 1.0.2
-* Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0-0anchor1
+* Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0.1-0anchor1
 - Bump to 1.0.1
 * Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0-0anchor1
 - Initial build
