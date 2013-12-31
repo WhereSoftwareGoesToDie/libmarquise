@@ -40,7 +40,7 @@ int main( int argc, char **argv ) {
         for(i = 1; i <= n; i++) {
                 struct timespec ts;
                 uint64_t timestamp;
-                int64_t value = 4;
+                int64_t value = n;
                 clock_gettime(CLOCK_REALTIME, &ts);
                 timestamp = ts.tv_sec * 1000000000 + ts.tv_nsec;
                 int ret = marquise_send_int( connection, field_buf, value_buf, 1, value, timestamp);
