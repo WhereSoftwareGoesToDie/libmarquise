@@ -37,19 +37,19 @@ MOSTLYCLEANFILES = protobuf/*.o protobuf/*.lo
 TESTS=$(check_PROGRAMS)
 check_PROGRAMS=\
 	defer_file_test \
-	as_consumer_new_test \
-	as_connect_test \
+	marquise_consumer_new_test \
+	marquise_connect_test \
 	varint_test \
 	full_stack_test
 
 defer_file_test_SOURCES = tests/defer_file_test.c 
 defer_file_test_LDADD = libmarquise.la
 
-as_consumer_new_test_SOURCES = tests/as_consumer_new_test.c
-as_consumer_new_test_LDADD = libmarquise.la
+marquise_consumer_new_test_SOURCES = tests/marquise_consumer_new_test.c
+marquise_consumer_new_test_LDADD = libmarquise.la
 
-as_connect_test_SOURCES = tests/as_connect_test.c
-as_connect_test_LDADD = libmarquise.la
+marquise_connect_test_SOURCES = tests/marquise_connect_test.c
+marquise_connect_test_LDADD = libmarquise.la
 
 varint_test_SOURCES = tests/varint_test.c
 varint_test_LDADD = libmarquise.la
