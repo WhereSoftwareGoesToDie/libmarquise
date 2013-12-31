@@ -89,7 +89,7 @@ deferral_file *as_deferral_file_new() {
         deferral_file *df = malloc( sizeof( deferral_file ) );
         if( !df ) return NULL;
 
-        char *template = "/var/tmp/as_defer_file_test_XXXXXX";
+        char *template = "/var/tmp/as_defer_file_XXXXXX";
         char *file_path = malloc( strlen( template ) + 1 );
         if( !file_path ) {
                 free( df );
