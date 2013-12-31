@@ -18,8 +18,6 @@ config.h
 config.log
 config.status
 libtool
-src/.deps/
-src/lz4-r109/.deps/
 src/Makefile
 stamp-h1
 m4/
@@ -27,9 +25,7 @@ m4/
 *.lo
 *.la
 src/.libs/
-src/send_anchor_stat
-src/protobuf/.deps/
-src/protobuf/.dirstamp
+src/marquise
 src/protobuf/DataFrame.pb-c.c
 src/protobuf/DataFrame.pb-c.h
 src/protobuf/DataBurst.pb-c.c
@@ -37,8 +33,8 @@ src/protobuf/DataBurst.pb-c.h
 src/*_test
 src/*test.trs
 test-driver
-src/tests/.deps/
-src/tests/.dirstamp
 src/tests/defer_file_test
 *.log
 *.tar.gz
+.deps
+.dirstamp
