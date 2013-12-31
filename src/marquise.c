@@ -253,8 +253,8 @@ static int compress_burst( data_burst *burst ) {
         burst->data = malloc( LZ4_compressBound( burst->length ) + 8 );
         if( !burst->data ) return -1;
         int written = LZ4_compressHC( (char *)uncompressed
-                                  , (char *)burst->data + 8
-                                  , (int)burst->length );
+                                    , (char *)burst->data + 8
+                                    , (int)burst->length );
         if( !written ) return -1;
         add_header( burst->data, burst->length, written );
         burst->length = (size_t)written + 8;
