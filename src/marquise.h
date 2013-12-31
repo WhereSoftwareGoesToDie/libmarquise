@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef void *as_consumer;
-typedef void *as_connection;
+typedef void *marquise_consumer;
+typedef void *marquise_connection;
 
 // Attempt to start a consumer with the system's local configuration. Returns
 // NULL on failure and sets errno.
@@ -14,24 +14,24 @@ typedef void *as_connection;
 //
 // Failure almost certainly means catastrophic failure, do not retry on
 // failure, check syslog.
-as_consumer as_consumer_new( char *broker, double batch_period );
+marquise_consumer marquise_consumer_new( char *broker, double batch_period );
 
-// Cleanup a consumer's resources. Ensure that you run as_close on any
+// Cleanup a consumer's resources. Ensure that you run marquise_close on any
 // open connections first.
-void as_consumer_shutdown( as_consumer consumer );
+void marquise_consumer_shutdown( marquise_consumer consumer );
 
 // Open a connection to a consumer. This conection is not thread safe, the
 // consumer is. If you wish to send a message from multiple threads, open a new
 // connection in each.
-as_connection as_connect( as_consumer consumer );
-void as_close( as_connection connection );
+marquise_connection marquise_connect( marquise_consumer consumer );
+void marquise_close( marquise_connection connection );
 
 // Returns 0 on success, -1 on failure, setting errno. Will only possibly fail
 // on zmq_send_msg. This will probably only ever fail if you provide an invalid
 // connection.
 
 // Type: TEXT
-int as_send_text( as_connection connection
+int marquise_send_text( marquise_connection connection
                 , char **source_fields
                 , char **source_values
                 , size_t source_count
@@ -41,7 +41,7 @@ int as_send_text( as_connection connection
                 , uint64_t timestamp);
 
 // Type: NUMBER
-int as_send_int( as_connection connection
+int marquise_send_int( marquise_connection connection
                , char **source_fields
                , char **source_values
                , size_t source_count
@@ -50,7 +50,7 @@ int as_send_int( as_connection connection
                , uint64_t timestamp);
 
 // Type: REAL
-int as_send_real( as_connection connection
+int marquise_send_real( marquise_connection connection
                 , char **source_fields
                 , char **source_values
                 , size_t source_count
@@ -59,7 +59,7 @@ int as_send_real( as_connection connection
                 , uint64_t timestamp);
 
 // Type: EMPTY
-int as_send_counter( as_connection connection
+int marquise_send_counter( marquise_connection connection
                    , char **source_fields
                    , char **source_values
                    , size_t source_count
@@ -67,7 +67,7 @@ int as_send_counter( as_connection connection
                    , uint64_t timestamp);
 
 // Type: BINARY
-int as_send_binary( as_connection connection
+int marquise_send_binary( marquise_connection connection
                   , char **source_fields
                   , char **source_values
                   , size_t source_count

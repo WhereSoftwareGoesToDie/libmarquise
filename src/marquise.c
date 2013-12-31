@@ -68,9 +68,9 @@ static void *connect_upstream_socket( void *context, char *broker ) {
                  zmq_ctx_destroy( context );          \
                  zmq_ctx_destroy( upstream_context ); \
                  return NULL;                         \
-               , "as_consumer_new: " __VA_ARGS__ );   \
+               , "marquise_consumer_new: " __VA_ARGS__ );   \
 
-as_consumer as_consumer_new( char *broker, double poll_period ) {
+marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         // This context is used for fast inprocess communication, we pass it to
         // the queuing thread which will connect back to us and start
         // processing requests.
@@ -120,7 +120,7 @@ as_consumer as_consumer_new( char *broker, double poll_period ) {
         args->upstream_context    = upstream_context;
         args->upstream_connection = upstream_connection;
         args->poll_period         = poll_period;
-        args->deferral_file       = as_deferral_file_new();
+        args->deferral_file       = marquise_deferral_file_new();
         ctx_fail_if( ! args->deferral_file
                    , zmq_close( queue_connection );
                      zmq_close( upstream_connection );
@@ -200,7 +200,7 @@ static void try_send_upstream(data_burst *burst, queue_args *args ) {
                          , burst->data
                          , burst->length
                          , 0 ) == -1
-               , as_defer_to_file( args->deferral_file, burst );
+               , marquise_defer_to_file( args->deferral_file, burst );
                  free_databurst( burst );
                  return;
                , "sending message: '%s'", strerror( errno ) );
@@ -209,7 +209,7 @@ static void try_send_upstream(data_burst *burst, queue_args *args ) {
         zmq_msg_t response;
         zmq_msg_init( &response );
         fail_if( zmq_msg_recv( &response, args->upstream_connection, 0 ) == -1
-               , as_defer_to_file( args->deferral_file, burst );
+               , marquise_defer_to_file( args->deferral_file, burst );
                  free_databurst( burst );
                  // If a recv fails, we need to reset the connection or the
                  // state machine will be out of step.
@@ -343,7 +343,7 @@ static void *queue_loop( void *args_ptr ) {
                         g_timer_reset(timer);
                         // And from the dead, a wild databurst appears!
                         data_burst *zombie =
-                                as_retrieve_from_file( args->deferral_file );
+                                marquise_retrieve_from_file( args->deferral_file );
                         if( zombie )
                                 try_send_upstream( zombie, args );
 
@@ -361,7 +361,7 @@ static void *queue_loop( void *args_ptr ) {
 
         // Ensure that any messages deferred to disk are sent.
         data_burst *remaining;
-        while( (remaining = as_retrieve_from_file( args->deferral_file)) ) {
+        while( (remaining = marquise_retrieve_from_file( args->deferral_file)) ) {
                 usleep( poll_ms * 1000 );
                 try_send_upstream( remaining, args );
         }
@@ -372,17 +372,17 @@ static void *queue_loop( void *args_ptr ) {
         zmq_close( args->upstream_connection );
         zmq_ctx_destroy( args->upstream_context );
 
-        as_deferral_file_close( args->deferral_file );
-        as_deferral_file_free( args->deferral_file );
+        marquise_deferral_file_close( args->deferral_file );
+        marquise_deferral_file_free( args->deferral_file );
 
         // Closing this connection will allow the user's call to
-        // as_consumer_shutdown to return.
+        // marquise_consumer_shutdown to return.
         zmq_close( args->queue_connection );
         free(args);
         return NULL;
 }
 
-void as_consumer_shutdown( as_consumer consumer ) {
+void marquise_consumer_shutdown( marquise_consumer consumer ) {
         zmq_ctx_destroy( consumer );
 }
 
@@ -392,22 +392,22 @@ void as_consumer_shutdown( as_consumer consumer ) {
                , __VA_ARGS__ );                        \
         } while( 0 )
 
-as_connection as_connect( as_consumer consumer ) {
+marquise_connection marquise_connect( marquise_consumer consumer ) {
         void *connection = zmq_socket( consumer, ZMQ_PUSH );
         conn_fail_if( !connection
-                    , "as_connect: zmq_socket: '%s'"
+                    , "marquise_connect: zmq_socket: '%s'"
                     , strerror( errno ) );
         conn_fail_if( zmq_connect( connection, "inproc://queue" )
-                    , "as_connect: zmq_connect: '%s'"
+                    , "marquise_connect: zmq_connect: '%s'"
                     , strerror( errno ) );
         return connection;
 }
 
-void as_close( as_connection connection ) {
+void marquise_close( marquise_connection connection ) {
         zmq_close( connection );
 }
 
-int as_send_frame( as_connection connection
+int marquise_send_frame( marquise_connection connection
                  , DataFrame *frame) {
         size_t length = data_frame__get_packed_size( frame );
         uint8_t *marshalled_frame = malloc( length );
@@ -426,7 +426,7 @@ int as_send_frame( as_connection connection
         return ret;
 }
 
-int as_send_text( as_connection connection
+int marquise_send_text( marquise_connection connection
            , char **source_fields
            , char **source_values
            , size_t source_count
@@ -440,10 +440,10 @@ int as_send_text( as_connection connection
                                       , DATA_FRAME__TYPE__TEXT );
         if( !frame ) return -1 ;
         frame->value_textual = data;
-        return as_send_frame( connection, frame );
+        return marquise_send_frame( connection, frame );
 }
 
-int as_send_int( as_connection connection
+int marquise_send_int( marquise_connection connection
            , char **source_fields
            , char **source_values
            , size_t source_count
@@ -457,10 +457,10 @@ int as_send_int( as_connection connection
         if( !frame ) return -1 ;
         frame->value_numeric = data;
         frame->has_value_numeric = 1;
-        return as_send_frame( connection, frame );
+        return marquise_send_frame( connection, frame );
 }
 
-int as_send_real( as_connection connection
+int marquise_send_real( marquise_connection connection
            , char **source_fields
            , char **source_values
            , size_t source_count
@@ -474,10 +474,10 @@ int as_send_real( as_connection connection
         if( !frame ) return -1 ;
         frame->value_measurement = data;
         frame->has_value_measurement = 1;
-        return as_send_frame( connection, frame );
+        return marquise_send_frame( connection, frame );
 }
 
-int as_send_counter( as_connection connection
+int marquise_send_counter( marquise_connection connection
            , char **source_fields
            , char **source_values
            , size_t source_count
@@ -488,10 +488,10 @@ int as_send_counter( as_connection connection
                                       , timestamp
                                       , DATA_FRAME__TYPE__EMPTY);
         if( !frame ) return -1 ;
-        return as_send_frame( connection, frame );
+        return marquise_send_frame( connection, frame );
 }
 
-int as_send_binary( as_connection connection
+int marquise_send_binary( marquise_connection connection
            , char **source_fields
            , char **source_values
            , size_t source_count
@@ -507,5 +507,5 @@ int as_send_binary( as_connection connection
         frame->value_blob.len = length;
         frame->value_blob.data = data;
         frame->has_value_blob = 1;
-        return as_send_frame( connection, frame );
+        return marquise_send_frame( connection, frame );
 }

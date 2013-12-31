@@ -14,15 +14,15 @@
 // data. It was lost anyway. At least this way we can save more datas.
 #define recover_if( assertion, ... ) do {                               \
         fail_if( assertion                                              \
-               , as_deferral_file_close( df );                          \
-                 deferral_file *new = as_deferral_file_new();           \
+               , marquise_deferral_file_close( df );                          \
+                 deferral_file *new = marquise_deferral_file_new();           \
                  free( df->path );                                      \
                  *df = *new;                                            \
                  free( new );                                           \
-               , "as_defer_to_file recovered: %s", strerror( errno ) ); \
+               , "marquise_defer_to_file recovered: %s", strerror( errno ) ); \
         } while( 0 )
 
-void as_defer_to_file( deferral_file *df, data_burst *burst ) {
+void marquise_defer_to_file( deferral_file *df, data_burst *burst ) {
         struct stat sb;
         recover_if( stat( df->path, &sb ) == -1 );
         recover_if( fseek( df->stream, 0, SEEK_END ) ) ;
@@ -34,10 +34,10 @@ void as_defer_to_file( deferral_file *df, data_burst *burst ) {
 #define bail_if( assertion, action) do {                                  \
         fail_if( assertion                                                \
                , { action }; return NULL;        \
-               , "as_retrieve_from_file failed: %s", strerror( errno ) ); \
+               , "marquise_retrieve_from_file failed: %s", strerror( errno ) ); \
         } while( 0 )
 
-data_burst *as_retrieve_from_file( deferral_file *df ) {
+data_burst *marquise_retrieve_from_file( deferral_file *df ) {
 
         // Broken file means no bursts left.
         struct stat sb;
@@ -85,11 +85,11 @@ data_burst *as_retrieve_from_file( deferral_file *df ) {
         return burst;
 }
 
-deferral_file *as_deferral_file_new() {
+deferral_file *marquise_deferral_file_new() {
         deferral_file *df = malloc( sizeof( deferral_file ) );
         if( !df ) return NULL;
 
-        char *template = "/var/tmp/as_defer_file_XXXXXX";
+        char *template = "/var/tmp/marquise_defer_file_XXXXXX";
         char *file_path = malloc( strlen( template ) + 1 );
         if( !file_path ) {
                 free( df );
@@ -112,12 +112,12 @@ deferral_file *as_deferral_file_new() {
                 return NULL;
 }
 
-void as_deferral_file_close(deferral_file *df) {
+void marquise_deferral_file_close(deferral_file *df) {
         fclose( df->stream );
         unlink( df->path );
 }
 
-void as_deferral_file_free( deferral_file *df ) {
+void marquise_deferral_file_free( deferral_file *df ) {
         free( df->path );
         free( df );
 }

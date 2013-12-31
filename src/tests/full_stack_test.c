@@ -8,19 +8,19 @@
 #include <zmq.h>
 
 typedef struct {
-        as_consumer *context;
-        as_connection *connection;
+        marquise_consumer *context;
+        marquise_connection *connection;
 } fixture;
 
 void setup( fixture *f, gconstpointer td ){
-        f->context = as_consumer_new("ipc:///tmp/as_full_stack_test", 0.1);
+        f->context = marquise_consumer_new("ipc:///tmp/marquise_full_stack_test", 0.1);
         g_assert( f->context );
-        f->connection = as_connect(f->context);
+        f->connection = marquise_connect(f->context);
         g_assert( f->connection );
 }
 void teardown( fixture *f, gconstpointer td ){
-        as_close( f->connection );
-        as_consumer_shutdown( f->context );
+        marquise_close( f->connection );
+        marquise_consumer_shutdown( f->context );
 }
 
 // Starting simple, we send one message and make sure we get it.
@@ -28,7 +28,7 @@ void one_message( fixture *f, gconstpointer td ){
         char *field_buf[] = {"foo"};
         char *value_buf[] = {"bar"};
 
-        g_assert( as_send_int( f->connection, field_buf, value_buf, 1, 10, 20 )
+        g_assert( marquise_send_int( f->connection, field_buf, value_buf, 1, 10, 20 )
                   != -1 );
 
         // Now start up the server and expect them all.
@@ -36,7 +36,7 @@ void one_message( fixture *f, gconstpointer td ){
         g_assert( context );
         void *bind_sock = zmq_socket( context, ZMQ_REP );
         g_assert( bind_sock );
-        g_assert( !zmq_bind( bind_sock, "ipc:///tmp/as_full_stack_test" ) );
+        g_assert( !zmq_bind( bind_sock, "ipc:///tmp/marquise_full_stack_test" ) );
 
         char *scratch = malloc(512);
         char *decompressed = malloc(512);
@@ -60,7 +60,7 @@ void many_messages( fixture *f, gconstpointer td ){
         g_assert( context );
         void *bind_sock = zmq_socket( context, ZMQ_REP );
         g_assert( bind_sock );
-        g_assert( !zmq_bind( bind_sock, "ipc:///tmp/as_full_stack_test" ) );
+        g_assert( !zmq_bind( bind_sock, "ipc:///tmp/marquise_full_stack_test" ) );
 
 
         // Send a few messages
@@ -68,7 +68,7 @@ void many_messages( fixture *f, gconstpointer td ){
         char *field_buf[] = {"foo"};
         char *value_buf[] = {"bar"};
         for( i = 0; i < 8192; i++ )
-                g_assert( as_send_int( f->connection
+                g_assert( marquise_send_int( f->connection
                                      , field_buf
                                      , value_buf
                                      , 1
@@ -97,7 +97,7 @@ static void *server( void *args ) {
         g_assert( context );
         void *bind_sock = zmq_socket( context, ZMQ_REP );
         g_assert( bind_sock );
-        g_assert( !zmq_bind( bind_sock, "ipc:///tmp/as_full_stack_test" ) );
+        g_assert( !zmq_bind( bind_sock, "ipc:///tmp/marquise_full_stack_test" ) );
 
         char *scratch = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
@@ -114,7 +114,7 @@ void defer_to_disk( fixture *f, gconstpointer td ){
         char *value_buf[] = {"bar"};
 
         // Send one message
-        g_assert( as_send_int( f->connection, field_buf, value_buf, 1, 10, 20 )
+        g_assert( marquise_send_int( f->connection, field_buf, value_buf, 1, 10, 20 )
                   != -1 );
 
         // Now sleep till the file is deferred to disk at least once. This
@@ -130,8 +130,8 @@ void defer_to_disk( fixture *f, gconstpointer td ){
 
 
         // And shutdown the connection immediately.
-        as_close( f->connection );
-        as_consumer_shutdown( f->context );
+        marquise_close( f->connection );
+        marquise_consumer_shutdown( f->context );
 }
 
 int main( int argc, char **argv ){

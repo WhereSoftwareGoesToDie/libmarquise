@@ -12,11 +12,11 @@ typedef struct {
 } fixture;
 
 void setup( fixture *f, gconstpointer td ){
-        f->df = as_deferral_file_new();
+        f->df = marquise_deferral_file_new();
 }
 void teardown( fixture *f, gconstpointer td ){
-        as_deferral_file_close(f->df);
-        as_deferral_file_free( f->df );
+        marquise_deferral_file_close(f->df);
+        marquise_deferral_file_free( f->df );
 }
 
 void defer_then_read( fixture *f, gconstpointer td ){
@@ -31,19 +31,19 @@ void defer_then_read( fixture *f, gconstpointer td ){
         memcpy(first->data, "last", 5);
         last->length = 5;
 
-        as_defer_to_file( f->df, first );
-        as_defer_to_file( f->df, last );
+        marquise_defer_to_file( f->df, first );
+        marquise_defer_to_file( f->df, last );
 
-        data_burst *first_retrieved = as_retrieve_from_file( f->df );
+        data_burst *first_retrieved = marquise_retrieve_from_file( f->df );
         g_assert_cmpuint( last->length, ==, first_retrieved->length);
         g_assert_cmpstr( (char *)last->data, ==, (char *)first_retrieved->data);
 
 
-        data_burst *last_retrieved = as_retrieve_from_file( f->df );
+        data_burst *last_retrieved = marquise_retrieve_from_file( f->df );
         g_assert_cmpuint( first->length, ==, last_retrieved->length);
         g_assert_cmpstr( (char *)first->data, ==, (char *)last_retrieved->data);
 
-        data_burst *nonexistant = as_retrieve_from_file( f->df );
+        data_burst *nonexistant = marquise_retrieve_from_file( f->df );
         g_assert ( !nonexistant );
 
         free_databurst( first );
@@ -58,9 +58,9 @@ void defer_unlink_then_read( fixture *f, gconstpointer td ){
         memcpy(first->data,"first", 6);
         first->length = 6;
 
-        as_defer_to_file( f->df, first );
+        marquise_defer_to_file( f->df, first );
         unlink( f->df->path );
-        data_burst *nonexistant = as_retrieve_from_file( f->df );
+        data_burst *nonexistant = marquise_retrieve_from_file( f->df );
         g_assert ( !nonexistant );
 
         free_databurst( first );
@@ -73,8 +73,8 @@ void unlink_defer_then_read( fixture *f, gconstpointer td ){
         first->length = 6;
 
         unlink( f->df->path );
-        as_defer_to_file( f->df, first );
-        data_burst *first_retrieved = as_retrieve_from_file( f->df );
+        marquise_defer_to_file( f->df, first );
+        data_burst *first_retrieved = marquise_retrieve_from_file( f->df );
         g_assert( first_retrieved );
         g_assert_cmpuint( first->length, ==, first_retrieved->length);
         g_assert_cmpstr( (char *)first->data, ==, (char *)first_retrieved->data);
