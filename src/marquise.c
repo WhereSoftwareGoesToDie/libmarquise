@@ -379,8 +379,6 @@ static void *queue_loop( void *args_ptr ) {
         // queue_loop on a timer in a new thread. This way we avoid the need
         // for a non blocking join.
         while( usleep( us ) ) {
-                printf("usleep\n");
-
                 // And from the dead, a wild databurst appears!
                 data_burst *zombie =
                         marquise_retrieve_from_file( args->deferral_file );
@@ -428,10 +426,18 @@ void marquise_consumer_shutdown( marquise_consumer consumer ) {
         if( zmq_send( connection, "DIE", 3, 0 ) == -1 )
                 return;
 
+
         // The consumer thread will signal when it is done cleaning up.
         zmq_msg_t ack;
         zmq_msg_init( &ack );
-        zmq_recvmsg( connection, &ack, 0 );
+
+        int err;
+        retry:
+        err = zmq_recvmsg( connection, &ack, 0 );
+        if( err == -1 && errno == EINTR ) goto retry;
+        fail_if( err == -1
+               , return;
+               , "zmq_recvmsg: %s", strerror( errno ) );
         zmq_msg_close( &ack );
 
         zmq_close( connection );
