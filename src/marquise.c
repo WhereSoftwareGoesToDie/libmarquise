@@ -85,8 +85,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                , "zmq_ctx_new (upstream) failed, this is very confusing." );
 
         ctx_fail_if( poll_period <= 0, , "poll_period cannot be <= 0" );
-        // Set up the queuing PULL socket.
-        void *queue_connection = zmq_socket( context, ZMQ_PULL );
+        // Set up the queuing REP socket.
+        void *queue_connection = zmq_socket( context, ZMQ_REP );
         ctx_fail_if( !queue_connection
                    , zmq_close( queue_connection );
                    , "zmq_socket: '%s'"
@@ -115,7 +115,13 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                      zmq_close( upstream_connection );
                    , "malloc()" );
 
+        ctx_fail_if( pthread_mutex_init( &args->queue_mutex, NULL)
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "pthread_mutex_init" );
+
         args->context             = context;
+        args->queue               = NULL;
         args->queue_connection    = queue_connection;
         args->upstream_context    = upstream_context;
         args->upstream_connection = upstream_connection;
@@ -194,7 +200,7 @@ static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
 }
 
 // This function either sends the message or defers it. There is no try.
-static void try_send_upstream(data_burst *burst, queue_args *args ) {
+static void try_send_upstream( data_burst *burst, queue_args *args ) {
         // This will timeout due to ZMQ_SNDTIMEO being set on the socket.
         fail_if( zmq_send( args->upstream_connection
                          , burst->data
@@ -234,7 +240,7 @@ static void try_send_upstream(data_burst *burst, queue_args *args ) {
 // Bit twiddling is to support big endian architectures only. Really we are
 // just writing two little endian uint32_t's which represent the original
 // length, and the compressed length. The compressed data follows.
-char *add_header( uint8_t *dest, uint32_t original_len, uint32_t data_len ) {
+void add_header( uint8_t *dest, uint32_t original_len, uint32_t data_len ) {
         dest[3]= (original_len >> 24) & 0xff;
         dest[2]= (original_len >> 16) & 0xff;
         dest[1]= (original_len >> 8)  & 0xff;
@@ -262,15 +268,18 @@ static int compress_burst( data_burst *burst ) {
         return 0;
 }
 
-static void send_queue( GSList **queue, queue_args *args ) {
+static void send_queue( queue_args *args ) {
+        pthread_mutex_lock( &args->queue_mutex );
+        if( !args->queue ) goto outro;
         // This iterates over the entire list, passing each
         // element to accumulate_databursts
-        guint queue_length = g_slist_length( *queue );
-        g_slist_foreach( g_slist_reverse( *queue )
+        guint queue_length = g_slist_length( args->queue );
+        g_slist_foreach( g_slist_reverse( args->queue )
                         , (GFunc)accumulate_databursts
                         , &queue_length );
-        g_slist_free( *queue );
-        *queue = NULL;
+        g_slist_free( args->queue );
+        args->queue = NULL;
+        pthread_mutex_unlock( &args->queue_mutex );
 
         frame *frames = accumulate_databursts( NULL, NULL );
         data_burst *burst = malloc( sizeof( data_burst ) );
@@ -286,15 +295,14 @@ static void send_queue( GSList **queue, queue_args *args ) {
                , "lz4 compression failed" );
 
         try_send_upstream( burst, args );
+        outro:
+                pthread_mutex_unlock( &args->queue_mutex );
 }
 
-// Listen for events, queue them up for the specified time and then send them
-// to the specified broker.
-static void *queue_loop( void *args_ptr ) {
+static void *queue_reader( void *args_ptr ) {
+        // unneeded cast?
         queue_args *args = args_ptr;
-        GSList *queue = NULL;
-        GTimer *timer = g_timer_new();
-        gulong ms; // Useless, microseconds for gtimer_elapsed
+
         int poll_ms = floor( 1000 * args->poll_period );
 
         // We poll so that we can ensure that we flush at most
@@ -307,62 +315,91 @@ static void *queue_loop( void *args_ptr ) {
                 , 0 }
         };
 
+
         while( 1 ) {
+                // fail_if
                 if( zmq_poll( items, 1, poll_ms ) == -1 ) {
-                        // Oh god what? We should only ever get an ETERM.
-                        if( errno != ETERM ) {
                                 syslog( LOG_ERR
-                                      , "libmarquise error: zmq_poll "
-                                                "got unknown error code: %d"
-                                      , errno );
-                        }
-                        // We're done. If the user remembered to shutdown all
-                        // the sockets, then the consumer, then there can't be
-                        // any more messages waiting. Either way, we can't get
-                        // them now.
-                        break;
+                                , "libmarquise error: zmq_poll "
+                                        "got unknown error code: %d"
+                                , errno );
+                                break;
                 }
 
                 if ( items [0].revents & ZMQ_POLLIN ) {
                         zmq_msg_t *message = malloc( sizeof( zmq_msg_t ) );
                         if( !message ) continue;
                         zmq_msg_init( message );
+                        int rcv = zmq_msg_recv( message
+                                        , args->queue_connection
+                                        , 0 );
 
-                        fail_if( zmq_msg_recv( message
-                                             , args->queue_connection
-                                             , 0 ) == -1
+                        fail_if( rcv == -1 
                                ,
                                , "queue_loop: zmq_msg_recv: '%s'"
                                , strerror( errno ) );
 
+                        if(  rcv == 3
+                          && !strncmp( zmq_msg_data( message ), "DIE", 3 ) )
+                                break;
+
                         // Prepend here so as to not traverse the entire list.
-                        queue = g_slist_prepend( queue, message );
+                        // We will reverse the list when we send it.
+                        pthread_mutex_lock( &args->queue_mutex );
+                        args->queue = g_slist_prepend( args->queue, message );
+                        pthread_mutex_unlock( &args->queue_mutex );
+
+                        // Notify that we have processed the message.
+                        fail_if( zmq_send( args->queue_connection, "", 0, 0 )
+                        ,
+                        , "queue_loop: zmq_send: '%s'"
+                        , strerror( errno ) );
                 }
-
-                if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
-                        g_timer_reset(timer);
-                        // And from the dead, a wild databurst appears!
-                        data_burst *zombie =
-                                marquise_retrieve_from_file( args->deferral_file );
-                        if( zombie )
-                                try_send_upstream( zombie, args );
-
-                        if( queue )
-                                send_queue( &queue, args );
-               }
-
         }
 
-        g_timer_destroy( timer );
+        return NULL;
+}
+// Listen for events, queue them up for the specified time and then send them
+// to the specified broker.
+static void *queue_loop( void *args_ptr ) {
+        queue_args *args = args_ptr;
+        pthread_t reader_thread;
+        int err = pthread_create( &reader_thread
+                                , NULL
+                                , queue_reader
+                                , args );
+
+        fail_if(   err
+                   , return;
+                   , "pthread_create returned: '%d'", err );
+
+
+        int us = floor( 1000000 * args->poll_period );
+        // TODO: swap queue_loop and queue_reader so that queue_reader calls
+        // queue_loop on a timer in a new thread. This way we avoid the need
+        // for a non blocking join.
+        while( usleep( us ) ) {
+                printf("usleep\n");
+
+                // And from the dead, a wild databurst appears!
+                data_burst *zombie =
+                        marquise_retrieve_from_file( args->deferral_file );
+                if( zombie )
+                        try_send_upstream( zombie, args );
+
+                send_queue( args );
+
+                if( pthread_tryjoin_np( reader_thread, NULL ) ) break;
+        }
 
         // Flush the queue one last time before exit.
-        if( queue ) send_queue( &queue, args );
+        send_queue( args );
 
 
         // Ensure that any messages deferred to disk are sent.
         data_burst *remaining;
         while( (remaining = marquise_retrieve_from_file( args->deferral_file)) ) {
-                usleep( poll_ms * 1000 );
+                usleep( us );
                 try_send_upstream( remaining, args );
         }
 
@@ -375,14 +412,29 @@ static void *queue_loop( void *args_ptr ) {
         marquise_deferral_file_close( args->deferral_file );
         marquise_deferral_file_free( args->deferral_file );
 
-        // Closing this connection will allow the user's call to
-        // marquise_consumer_shutdown to return.
-        zmq_close( args->queue_connection );
+        // All done, we can send an ack to let marquise_consumer_shutdown
+        // return
+        zmq_send( args->queue_connection, "", 0, 0 );
         free(args);
+        zmq_close( args->queue_connection );
         return NULL;
 }
 
 void marquise_consumer_shutdown( marquise_consumer consumer ) {
+        void *connection = marquise_connect( consumer );
+        if( !connection )
+                return;
+
+        if( zmq_send( connection, "DIE", 3, 0 ) == -1 )
+                return;
+
+        // The consumer thread will signal when it is done cleaning up.
+        zmq_msg_t ack;
+        zmq_msg_init( &ack );
+        zmq_recvmsg( connection, &ack, 0 );
+        zmq_msg_close( &ack );
+
+        zmq_close( connection );
         zmq_ctx_destroy( consumer );
 }
 
@@ -393,7 +445,7 @@ void marquise_consumer_shutdown( marquise_consumer consumer ) {
         } while( 0 )
 
 marquise_connection marquise_connect( marquise_consumer consumer ) {
-        void *connection = zmq_socket( consumer, ZMQ_PUSH );
+        void *connection = zmq_socket( consumer, ZMQ_REQ );
         conn_fail_if( !connection
                     , "marquise_connect: zmq_socket: '%s'"
                     , strerror( errno ) );
@@ -417,10 +469,19 @@ int marquise_send_frame( marquise_connection connection
         free_frame( frame );
 
         int ret;
-        retry:
+        retry_send:
         ret = zmq_send( connection, marshalled_frame, length, 0);
         if( ret == -1  && errno == EINTR )
-                goto retry;
+                goto retry_send;
+
+        zmq_msg_t ack;
+        zmq_msg_init( &ack );
+        retry_recv:
+        ret = zmq_msg_recv( &ack, connection, 0 );
+        if( ret == -1  && errno == EINTR )
+                goto retry_recv;
+
+        zmq_msg_close( &ack );
 
         free( marshalled_frame );
         return ret;

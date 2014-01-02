@@ -13,7 +13,7 @@ typedef struct {
 } fixture;
 
 void setup( fixture *f, gconstpointer td ){
-        f->context = marquise_consumer_new("ipc:///tmp/marquise_full_stack_test", 0.1);
+        f->context = marquise_consumer_new("ipc:///tmp/marquise_full_stack_test", 0.2);
         g_assert( f->context );
         f->connection = marquise_connect(f->context);
         g_assert( f->connection );
