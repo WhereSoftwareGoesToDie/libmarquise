@@ -17,6 +17,7 @@ typedef struct {
         deferral_file *deferral_file;
         double poll_period;
         pthread_mutex_t queue_mutex;
+        pthread_mutex_t flush_mutex;
         GSList *queue;
 } queue_args;
 

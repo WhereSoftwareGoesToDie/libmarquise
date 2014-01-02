@@ -120,6 +120,11 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                      zmq_close( upstream_connection );
                    , "pthread_mutex_init" );
 
+        ctx_fail_if( pthread_mutex_init( &args->flush_mutex, NULL)
+                   , zmq_close( queue_connection );
+                     zmq_close( upstream_connection );
+                   , "pthread_mutex_init" );
+
         args->context             = context;
         args->queue               = NULL;
         args->queue_connection    = queue_connection;
@@ -291,7 +296,7 @@ static void send_queue( queue_args *args ) {
                                         , burst->data );
         free( frames );
         fail_if( compress_burst( burst )
-               , return;
+               , goto outro;
                , "lz4 compression failed" );
 
         try_send_upstream( burst, args );
@@ -299,9 +304,25 @@ static void send_queue( queue_args *args ) {
                 pthread_mutex_unlock( &args->queue_mutex );
 }
 
-static void *queue_reader( void *args_ptr ) {
-        // unneeded cast?
+static void *flush_queue( void *args_ptr ) {
         queue_args *args = args_ptr;
+        pthread_mutex_lock( &args->flush_mutex );
+
+        // And from the dead, a wild databurst appears!
+        data_burst *zombie =
+                marquise_retrieve_from_file( args->deferral_file );
+        if( zombie )
+                try_send_upstream( zombie, args );
+
+        send_queue( args );
+        pthread_mutex_unlock( &args->flush_mutex );
+}
+
+static void *queue_loop( void *args_ptr ) {
+        queue_args *args = args_ptr;
+        GTimer *timer = g_timer_new();
+        gulong ms; // Useless, microseconds for gtimer_elapsed
+
 
         int poll_ms = floor( 1000 * args->poll_period );
 
@@ -355,49 +376,50 @@ static void *queue_reader( void *args_ptr ) {
                         , "queue_loop: zmq_send: '%s'"
                         , strerror( errno ) );
                 }
+
+                // Fire off a flushing thread every poll period
+                if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
+                        g_timer_reset(timer);
+
+                        // If there is already a flushing lock, we need not
+                        // start a new thread. This way we can avoid piling up
+                        // threads whilst we are failing to recive acks and the
+                        // poll period will effectively lower to the ack
+                        // timeout.
+                        if( pthread_mutex_trylock( &args->queue_mutex ) )
+                                        continue;
+
+                        // We got the lock, release it so that the flush_thread
+                        // may acquire it.
+                        pthread_mutex_unlock( &args->queue_mutex );
+
+                        pthread_t flush_thread;
+                        int err = pthread_create( &flush_thread
+                                                , NULL
+                                                , flush_queue
+                                                , args );
+
+                        fail_if( err
+                               , continue;
+                               , "pthread_create returned: '%d'", err );
+
+                        err = pthread_detach( flush_thread );
+                        fail_if( err
+                               ,
+                               , "pthread_detach returned: '%d'", err );
+
+                }
         }
 
-        return NULL;
-}
-// Listen for events, queue them up for the specified time and then send them
-// to the specified broker.
-static void *queue_loop( void *args_ptr ) {
-        queue_args *args = args_ptr;
-        pthread_t reader_thread;
-        int err = pthread_create( &reader_thread
-                                , NULL
-                                , queue_reader
-                                , args );
-
-        fail_if(   err
-                   , return;
-                   , "pthread_create returned: '%d'", err );
-
-
-        int us = floor( 1000000 * args->poll_period );
-        // TODO: swap queue_loop and queue_reader so that queue_reader calls
-        // queue_loop on a timer in a new thread. This way we avoid the need
-        // for a non blocking join.
-        while( usleep( us ) ) {
-                // And from the dead, a wild databurst appears!
-                data_burst *zombie =
-                        marquise_retrieve_from_file( args->deferral_file );
-                if( zombie )
-                        try_send_upstream( zombie, args );
-
-                send_queue( args );
-
-                if( pthread_tryjoin_np( reader_thread, NULL ) ) break;
-        }
-
-        // Flush the queue one last time before exit.
+        // Flush the queue one last time before exit
+        pthread_mutex_lock( &args->flush_mutex );
         send_queue( args );
 
 
         // Ensure that any messages deferred to disk are sent.
         data_burst *remaining;
         while( (remaining = marquise_retrieve_from_file( args->deferral_file)) ) {
-                usleep( us );
+                usleep( poll_ms * 1000 );
                 try_send_upstream( remaining, args );
         }
 
@@ -415,6 +437,7 @@ static void *queue_loop( void *args_ptr ) {
         zmq_send( args->queue_connection, "", 0, 0 );
         free(args);
         zmq_close( args->queue_connection );
+        pthread_mutex_unlock( &args->flush_mutex );
         return NULL;
 }
 
@@ -462,7 +485,6 @@ marquise_connection marquise_connect( marquise_consumer consumer ) {
 }
 
 void marquise_close( marquise_connection connection ) {
-        usleep( 10000 );
         zmq_close( connection );
 }
 
