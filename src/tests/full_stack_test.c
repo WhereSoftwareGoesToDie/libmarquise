@@ -75,10 +75,6 @@ void many_messages( fixture *f, gconstpointer td ){
                                      , 1
                                      , 10
                                      , 20 ) != -1 );
-        // We sleep here in order to get a reliable number of bytes back
-        // from zmq_recv (as we can't actually close the socket to
-        // ensure everything gets written)
-        sleep(1);
         char *scratch = malloc(1024);
         char *decompressed = malloc(300000);
         int recieved = zmq_recv( bind_sock, scratch, 1024, 0 );
