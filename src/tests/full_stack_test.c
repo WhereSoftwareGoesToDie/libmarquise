@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include "../marquise.h"
+#include "../protobuf/DataBurst.pb-c.h"
 #include "../lz4/lz4.h"
 #include <zmq.h>
 
@@ -81,11 +82,17 @@ void many_messages( fixture *f, gconstpointer td ){
         char *scratch = malloc(1024);
         char *decompressed = malloc(300000);
         int recieved = zmq_recv( bind_sock, scratch, 1024, 0 );
-        g_assert_cmpint( recieved, ==,  910 );
 
         int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (910 - 8), 300000 );
-        g_assert_cmpint( bytes, ==, 221184 );
+        DataBurst *burst;
+        burst = data_burst__unpack(NULL, bytes, decompressed);
+        g_assert(burst);
+        for (i = 0; i < burst->n_frames; i++) {
+                g_assert_cmpint(burst->frames[i]->value_numeric, ==, 10);
+                g_assert_cmpint(burst->frames[i]->timestamp, ==, 20);
+        }
 
+        data_burst__free_unpacked(burst, NULL);
         free( scratch );
         free( decompressed );
 
