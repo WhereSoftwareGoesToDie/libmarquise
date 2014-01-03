@@ -32,7 +32,7 @@ marquise_LDADD = libmarquise.la
 %.pb-c.c %.pb-c.h: %.proto
 	    $(PROTOC_C) --proto_path=$(srcdir)/protobuf --c_out=$(builddir)/protobuf $^
 
-MOSTLYCLEANFILES = protobuf/*.o protobuf/*.lo
+MOSTLYCLEANFILES = protobuf/*.o protobuf/*.lo protobuf/*.pb-c.*
 
 TESTS=$(check_PROGRAMS)
 check_PROGRAMS=\
