@@ -75,6 +75,7 @@ void many_messages( fixture *f, gconstpointer td ){
                                      , 1
                                      , 10
                                      , 20 ) != -1 );
+        sleep(3);
         char *scratch = malloc(1024);
         char *decompressed = malloc(300000);
         int recieved = zmq_recv( bind_sock, scratch, 1024, 0 );
