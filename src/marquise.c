@@ -18,9 +18,18 @@
 #include <string.h>
 #include <math.h>
 
-static void *queue_loop ( void *queue_socket );
+static void debug_log( char *format, ...) {
+        if( !getenv( "LIBMARQUISE_DEBUG" ) )
+                return;
+
+        va_list args;
+        va_start( args, format );
+        vfprintf( stderr, format, args );
+        va_end( args );
+}
 
 static void *connect_upstream_socket( void *context, char *broker ) {
+        debug_log( "Initializing upstream socket to %s\n", broker );
         // Set up the upstream REQ socket.
         void *upstream_connection = zmq_socket( context, ZMQ_REQ );
 
@@ -60,6 +69,327 @@ static void *connect_upstream_socket( void *context, char *broker ) {
                    , strerror( errno ) );
 
         return upstream_connection;
+}
+
+static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
+{
+        static frame *accumulator;
+        static size_t offset = 0;
+
+        // Reset and return result
+        if( !zmq_message && !queue_length ) {
+                debug_log( "Resetting accumulator\n" );
+
+                frame *ret = accumulator;
+                accumulator = NULL;
+                offset = 0;
+                return ret;
+        }
+
+        if( *queue_length <= 0 ) {
+                return NULL;
+        }
+
+        if( !accumulator ) {
+                debug_log( "Initializing accumulator for queue length %u\n"
+                         , *queue_length );
+                accumulator = calloc( *queue_length, sizeof( frame ) );
+                if( !accumulator ) {
+                        *queue_length -= 1;
+                        return NULL;
+                }
+        }
+
+        size_t msg_size = zmq_msg_size( zmq_message );
+        accumulator[offset].length = msg_size;
+        accumulator[offset].data = malloc( msg_size );
+        if( !accumulator[offset].data ) {
+                *queue_length -= 1;
+                return NULL;
+        }
+        memcpy( accumulator[offset].data, zmq_msg_data( zmq_message ), msg_size );
+        zmq_msg_close( zmq_message );
+        free( zmq_message );
+        offset++;
+
+        return NULL;
+}
+
+// This function either sends the message or defers it. There is no try.
+static void try_send_upstream( data_burst *burst, queue_args *args ) {
+        debug_log( "Attempting to send burst of len %d upstream\n"
+                 , burst->length );
+
+        int ret;
+
+        retry_send:
+        // This will timeout due to ZMQ_SNDTIMEO being set on the socket.
+        ret = zmq_send( args->upstream_connection
+                      , burst->data
+                      , burst->length
+                      , 0 );
+        // I belive that this is reduntant due to ZMQ_SNDTIMEO. It is more me
+        // being paranoid.
+        if( ret == -1 && errno == EINTR )
+                goto retry_send;
+        debug_log( "Upstream zmq_send() returned %d\n", ret );
+
+        fail_if( ret == -1
+               , marquise_defer_to_file( args->deferral_file, burst );
+                 free_databurst( burst );
+                 return;
+               , "sending message: '%s'", strerror( errno ) );
+
+        // This will timeout also due to ZMQ_RCVTIMEO
+        zmq_msg_t response;
+        zmq_msg_init( &response );
+
+        retry_recv:
+        ret = zmq_msg_recv( &response, args->upstream_connection, 0 );
+        if( ret == -1 && errno == EINTR )
+                goto retry_recv;
+        debug_log( "Upstream zmq_recv() returned %d\n", ret );
+
+        // If a recv fails, we need to reset the connection or the state
+        // machine will be out of step.
+        fail_if( ret == -1
+               , marquise_defer_to_file( args->deferral_file, burst );
+                 free_databurst( burst );
+                 int linger = 0;
+                 zmq_setsockopt( args->upstream_connection
+                               , ZMQ_LINGER
+                               , &linger
+                               , sizeof( linger ) );
+                 zmq_close( args->upstream_connection );
+                 args->upstream_connection = connect_upstream_socket(
+                           args->upstream_context
+                         , args->broker );
+                 return;
+               , "receiving ack: '%s'", strerror( errno ) );
+
+        // The second failure case is that upstream sends back an error as the
+        // ack
+        fail_if( ret > 0
+               , marquise_defer_to_file( args->deferral_file, burst );
+                 free_databurst( burst );
+                 return;
+               , "recieved upstream error: '%.*s'"
+               , ret
+               , (char *) zmq_msg_data( &response ) );
+
+        // This may in future contain something useful, like a hash of the
+        // message that we can verify.
+        zmq_msg_close( &response );
+        free_databurst( burst );
+}
+
+// Bit twiddling is to support big endian architectures only. Really we are
+// just writing two little endian uint32_t's which represent the original
+// length, and the compressed length. The compressed data follows.
+void add_header( uint8_t *dest, uint32_t original_len, uint32_t data_len ) {
+        dest[3]= (original_len >> 24) & 0xff;
+        dest[2]= (original_len >> 16) & 0xff;
+        dest[1]= (original_len >> 8)  & 0xff;
+        dest[0]=  original_len        & 0xff;
+
+        dest[7]= (data_len >> 24) & 0xff;
+        dest[6]= (data_len >> 16) & 0xff;
+        dest[5]= (data_len >> 8)  & 0xff;
+        dest[4]=  data_len        & 0xff;
+}
+
+// Returns -1 on failure, 0 on success
+static int compress_burst( data_burst *burst ) {
+        uint8_t *uncompressed = burst->data;
+        // + 8 for the serialized data.
+        burst->data = malloc( LZ4_compressBound( burst->length ) + 8 );
+        if( !burst->data ) return -1;
+        int written = LZ4_compressHC( (char *)uncompressed
+                                    , (char *)burst->data + 8
+                                    , (int)burst->length );
+        if( !written ) return -1;
+        add_header( burst->data, burst->length, written );
+        burst->length = (size_t)written + 8;
+        free( uncompressed );
+        return 0;
+}
+
+static void send_queue( queue_args *args ) {
+        debug_log("Sending queue\n");
+        pthread_mutex_lock( &args->queue_mutex );
+        if( !args->queue ) {
+                pthread_mutex_unlock( &args->queue_mutex );
+                return;
+        }
+
+        // This iterates over the entire list, passing each
+        // element to accumulate_databursts
+        guint queue_length = g_slist_length( args->queue );
+        g_slist_foreach( g_slist_reverse( args->queue )
+                        , (GFunc)accumulate_databursts
+                        , &queue_length );
+        g_slist_free( args->queue );
+        args->queue = NULL;
+        pthread_mutex_unlock( &args->queue_mutex );
+
+        frame *frames = accumulate_databursts( NULL, NULL );
+        data_burst *burst = malloc( sizeof( data_burst ) );
+        size_t max_burst_length =
+                get_databurst_size( frames, queue_length );
+        burst->data = malloc( max_burst_length );
+        burst->length = aggregate_frames( frames
+                                        , queue_length
+                                        , burst->data );
+        debug_log( "Accumulated bursts serialized to %d bytes\n"
+                 , burst->length);
+        free( frames );
+        fail_if( compress_burst( burst )
+               , return;
+               , "lz4 compression failed" );
+
+        debug_log( "Accumulated bursts compressed to %d bytes\n"
+                 , burst->length);
+
+        try_send_upstream( burst, args );
+}
+
+static void *flush_queue( void *args_ptr ) {
+        queue_args *args = args_ptr;
+        pthread_mutex_lock( &args->flush_mutex );
+
+        // And from the dead, a wild databurst appears!
+        data_burst *zombie =
+                marquise_retrieve_from_file( args->deferral_file );
+        if( zombie )
+                try_send_upstream( zombie, args );
+
+        send_queue( args );
+        pthread_mutex_unlock( &args->flush_mutex );
+        return NULL;
+}
+
+static void *queue_loop( void *args_ptr ) {
+        queue_args *args = args_ptr;
+        GTimer *timer = g_timer_new();
+        gulong ms; // Useless, microseconds for gtimer_elapsed
+
+
+        int poll_ms = floor( 1000 * args->poll_period );
+
+        // We poll so that we can ensure that we flush at most
+        // 100ms late, as opposed to waiting for an event to
+        // trigger the next flush.
+        zmq_pollitem_t items [] = {
+                { args->queue_connection
+                , 0
+                , ZMQ_POLLIN
+                , 0 }
+        };
+
+
+        while( 1 ) {
+                // fail_if
+                if( zmq_poll( items, 1, poll_ms ) == -1 ) {
+                                syslog( LOG_ERR
+                                , "libmarquise error: zmq_poll "
+                                        "got unknown error code: %d"
+                                , errno );
+                                break;
+                }
+
+                if ( items [0].revents & ZMQ_POLLIN ) {
+                        zmq_msg_t *message = malloc( sizeof( zmq_msg_t ) );
+                        if( !message ) continue;
+                        zmq_msg_init( message );
+                        int rcv = zmq_msg_recv( message
+                                        , args->queue_connection
+                                        , 0 );
+
+                        fail_if( rcv == -1 
+                               ,
+                               , "queue_loop: zmq_msg_recv: '%s'"
+                               , strerror( errno ) );
+
+                        if(  rcv == 3
+                          && !strncmp( zmq_msg_data( message ), "DIE", 3 ) )
+                                break;
+
+                        // Prepend here so as to not traverse the entire list.
+                        // We will reverse the list when we send it.
+                        pthread_mutex_lock( &args->queue_mutex );
+                        args->queue = g_slist_prepend( args->queue, message );
+                        pthread_mutex_unlock( &args->queue_mutex );
+
+                        // Notify that we have processed the message.
+                        fail_if( zmq_send( args->queue_connection, "", 0, 0 )
+                        ,
+                        , "queue_loop: zmq_send: '%s'"
+                        , strerror( errno ) );
+                }
+
+                // Fire off a flushing thread every poll period
+                if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
+                        debug_log( "Timer has triggered, flushing current queue\n" );
+                        g_timer_reset(timer);
+
+                        // If there is already a flushing lock, we need not
+                        // start a new thread. This way we can avoid piling up
+                        // threads whilst we are failing to recive acks and the
+                        // poll period will effectively lower to the ack
+                        // timeout.
+                        if( pthread_mutex_trylock( &args->queue_mutex ) )
+                                continue;
+
+                        // We got the lock, release it so that the flush_thread
+                        // may acquire it.
+                        pthread_mutex_unlock( &args->queue_mutex );
+
+                        pthread_t flush_thread;
+                        int err = pthread_create( &flush_thread
+                                                , NULL
+                                                , flush_queue
+                                                , args );
+
+                        fail_if( err
+                               , continue;
+                               , "pthread_create returned: '%d'", err );
+
+                        err = pthread_detach( flush_thread );
+                        fail_if( err
+                               ,
+                               , "pthread_detach returned: '%d'", err );
+
+                }
+        }
+
+        // Flush the queue one last time before exit
+        pthread_mutex_lock( &args->flush_mutex );
+        send_queue( args );
+
+
+        // Ensure that any messages deferred to disk are sent.
+        data_burst *remaining;
+        while( (remaining = marquise_retrieve_from_file( args->deferral_file)) ) {
+                usleep( poll_ms * 1000 );
+                try_send_upstream( remaining, args );
+        }
+
+        // All messages are sent, including those deferred to disk. It's safe
+        // to destroy the context and close the socket.  Will block here untill
+        // the last message is on the wire.
+        zmq_close( args->upstream_connection );
+        zmq_ctx_destroy( args->upstream_context );
+
+        marquise_deferral_file_close( args->deferral_file );
+        marquise_deferral_file_free( args->deferral_file );
+
+        // All done, we can send an ack to let marquise_consumer_shutdown
+        // return
+        zmq_send( args->queue_connection, "", 0, 0 );
+        free(args);
+        zmq_close( args->queue_connection );
+        pthread_mutex_unlock( &args->flush_mutex );
+        return NULL;
 }
 
 #define ctx_fail_if( assertion, action, ... )         \
@@ -162,283 +492,6 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
 
         // Ready to go as far as we're concerned, return the context.
         return context;
-}
-
-static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
-{
-        static frame *accumulator;
-        static size_t offset = 0;
-
-        // Reset and return result
-        if( !zmq_message && !queue_length ) {
-                frame *ret = accumulator;
-                accumulator = NULL;
-                offset = 0;
-                return ret;
-        }
-
-        if( *queue_length <= 0 ) {
-                return NULL;
-        }
-
-        if( !accumulator ) {
-                accumulator = calloc( *queue_length, sizeof( frame ) );
-                if( !accumulator ) {
-                        *queue_length -= 1;
-                        return NULL;
-                }
-        }
-
-        size_t msg_size = zmq_msg_size( zmq_message );
-        accumulator[offset].length = msg_size;
-        accumulator[offset].data = malloc( msg_size );
-        if( !accumulator[offset].data ) {
-                *queue_length -= 1;
-                return NULL;
-        }
-        memcpy( accumulator[offset].data, zmq_msg_data( zmq_message ), msg_size );
-        zmq_msg_close( zmq_message );
-        free( zmq_message );
-        offset++;
-
-        return NULL;
-}
-
-// This function either sends the message or defers it. There is no try.
-static void try_send_upstream( data_burst *burst, queue_args *args ) {
-        // This will timeout due to ZMQ_SNDTIMEO being set on the socket.
-        fail_if( zmq_send( args->upstream_connection
-                         , burst->data
-                         , burst->length
-                         , 0 ) == -1
-               , marquise_defer_to_file( args->deferral_file, burst );
-                 free_databurst( burst );
-                 return;
-               , "sending message: '%s'", strerror( errno ) );
-
-        // This will timeout also due to ZMQ_RCVTIMEO
-        zmq_msg_t response;
-        zmq_msg_init( &response );
-        fail_if( zmq_msg_recv( &response, args->upstream_connection, 0 ) == -1
-               , marquise_defer_to_file( args->deferral_file, burst );
-                 free_databurst( burst );
-                 // If a recv fails, we need to reset the connection or the
-                 // state machine will be out of step.
-                 int linger = 0;
-                 zmq_setsockopt( args->upstream_connection
-                               , ZMQ_LINGER
-                               , &linger
-                               , sizeof( linger ) );
-                 zmq_close( args->upstream_connection );
-                 args->upstream_connection = connect_upstream_socket(
-                           args->upstream_context
-                         , args->broker );
-                 return;
-               , "receiving ack: '%s'", strerror( errno ) );
-
-        // This may in future contain something useful, like a hash of the
-        // message that we can verify.
-        zmq_msg_close( &response );
-        free_databurst( burst );
-}
-
-// Bit twiddling is to support big endian architectures only. Really we are
-// just writing two little endian uint32_t's which represent the original
-// length, and the compressed length. The compressed data follows.
-void add_header( uint8_t *dest, uint32_t original_len, uint32_t data_len ) {
-        dest[3]= (original_len >> 24) & 0xff;
-        dest[2]= (original_len >> 16) & 0xff;
-        dest[1]= (original_len >> 8)  & 0xff;
-        dest[0]=  original_len        & 0xff;
-
-        dest[7]= (data_len >> 24) & 0xff;
-        dest[6]= (data_len >> 16) & 0xff;
-        dest[5]= (data_len >> 8)  & 0xff;
-        dest[4]=  data_len        & 0xff;
-}
-
-// Returns -1 on failure, 0 on success
-static int compress_burst( data_burst *burst ) {
-        uint8_t *uncompressed = burst->data;
-        // + 8 for the serialized data.
-        burst->data = malloc( LZ4_compressBound( burst->length ) + 8 );
-        if( !burst->data ) return -1;
-        int written = LZ4_compressHC( (char *)uncompressed
-                                    , (char *)burst->data + 8
-                                    , (int)burst->length );
-        if( !written ) return -1;
-        add_header( burst->data, burst->length, written );
-        burst->length = (size_t)written + 8;
-        free( uncompressed );
-        return 0;
-}
-
-static void send_queue( queue_args *args ) {
-        pthread_mutex_lock( &args->queue_mutex );
-        if( !args->queue ) goto outro;
-        // This iterates over the entire list, passing each
-        // element to accumulate_databursts
-        guint queue_length = g_slist_length( args->queue );
-        g_slist_foreach( g_slist_reverse( args->queue )
-                        , (GFunc)accumulate_databursts
-                        , &queue_length );
-        g_slist_free( args->queue );
-        args->queue = NULL;
-        pthread_mutex_unlock( &args->queue_mutex );
-
-        frame *frames = accumulate_databursts( NULL, NULL );
-        data_burst *burst = malloc( sizeof( data_burst ) );
-        size_t max_burst_length =
-                get_databurst_size( frames, queue_length );
-        burst->data = malloc( max_burst_length );
-        burst->length = aggregate_frames( frames
-                                        , queue_length
-                                        , burst->data );
-        free( frames );
-        fail_if( compress_burst( burst )
-               , goto outro;
-               , "lz4 compression failed" );
-
-        try_send_upstream( burst, args );
-        outro:
-                pthread_mutex_unlock( &args->queue_mutex );
-}
-
-static void *flush_queue( void *args_ptr ) {
-        queue_args *args = args_ptr;
-        pthread_mutex_lock( &args->flush_mutex );
-
-        // And from the dead, a wild databurst appears!
-        data_burst *zombie =
-                marquise_retrieve_from_file( args->deferral_file );
-        if( zombie )
-                try_send_upstream( zombie, args );
-
-        send_queue( args );
-        pthread_mutex_unlock( &args->flush_mutex );
-}
-
-static void *queue_loop( void *args_ptr ) {
-        queue_args *args = args_ptr;
-        GTimer *timer = g_timer_new();
-        gulong ms; // Useless, microseconds for gtimer_elapsed
-
-
-        int poll_ms = floor( 1000 * args->poll_period );
-
-        // We poll so that we can ensure that we flush at most
-        // 100ms late, as opposed to waiting for an event to
-        // trigger the next flush.
-        zmq_pollitem_t items [] = {
-                { args->queue_connection
-                , 0
-                , ZMQ_POLLIN
-                , 0 }
-        };
-
-
-        while( 1 ) {
-                // fail_if
-                if( zmq_poll( items, 1, poll_ms ) == -1 ) {
-                                syslog( LOG_ERR
-                                , "libmarquise error: zmq_poll "
-                                        "got unknown error code: %d"
-                                , errno );
-                                break;
-                }
-
-                if ( items [0].revents & ZMQ_POLLIN ) {
-                        zmq_msg_t *message = malloc( sizeof( zmq_msg_t ) );
-                        if( !message ) continue;
-                        zmq_msg_init( message );
-                        int rcv = zmq_msg_recv( message
-                                        , args->queue_connection
-                                        , 0 );
-
-                        fail_if( rcv == -1 
-                               ,
-                               , "queue_loop: zmq_msg_recv: '%s'"
-                               , strerror( errno ) );
-
-                        if(  rcv == 3
-                          && !strncmp( zmq_msg_data( message ), "DIE", 3 ) )
-                                break;
-
-                        // Prepend here so as to not traverse the entire list.
-                        // We will reverse the list when we send it.
-                        pthread_mutex_lock( &args->queue_mutex );
-                        args->queue = g_slist_prepend( args->queue, message );
-                        pthread_mutex_unlock( &args->queue_mutex );
-
-                        // Notify that we have processed the message.
-                        fail_if( zmq_send( args->queue_connection, "", 0, 0 )
-                        ,
-                        , "queue_loop: zmq_send: '%s'"
-                        , strerror( errno ) );
-                }
-
-                // Fire off a flushing thread every poll period
-                if( g_timer_elapsed( timer, &ms ) > args->poll_period ) {
-                        g_timer_reset(timer);
-
-                        // If there is already a flushing lock, we need not
-                        // start a new thread. This way we can avoid piling up
-                        // threads whilst we are failing to recive acks and the
-                        // poll period will effectively lower to the ack
-                        // timeout.
-                        if( pthread_mutex_trylock( &args->queue_mutex ) )
-                                        continue;
-
-                        // We got the lock, release it so that the flush_thread
-                        // may acquire it.
-                        pthread_mutex_unlock( &args->queue_mutex );
-
-                        pthread_t flush_thread;
-                        int err = pthread_create( &flush_thread
-                                                , NULL
-                                                , flush_queue
-                                                , args );
-
-                        fail_if( err
-                               , continue;
-                               , "pthread_create returned: '%d'", err );
-
-                        err = pthread_detach( flush_thread );
-                        fail_if( err
-                               ,
-                               , "pthread_detach returned: '%d'", err );
-
-                }
-        }
-
-        // Flush the queue one last time before exit
-        pthread_mutex_lock( &args->flush_mutex );
-        send_queue( args );
-
-
-        // Ensure that any messages deferred to disk are sent.
-        data_burst *remaining;
-        while( (remaining = marquise_retrieve_from_file( args->deferral_file)) ) {
-                usleep( poll_ms * 1000 );
-                try_send_upstream( remaining, args );
-        }
-
-        // All messages are sent, including those deferred to disk. It's safe
-        // to destroy the context and close the socket.  Will block here untill
-        // the last message is on the wire.
-        zmq_close( args->upstream_connection );
-        zmq_ctx_destroy( args->upstream_context );
-
-        marquise_deferral_file_close( args->deferral_file );
-        marquise_deferral_file_free( args->deferral_file );
-
-        // All done, we can send an ack to let marquise_consumer_shutdown
-        // return
-        zmq_send( args->queue_connection, "", 0, 0 );
-        free(args);
-        zmq_close( args->queue_connection );
-        pthread_mutex_unlock( &args->flush_mutex );
-        return NULL;
 }
 
 void marquise_consumer_shutdown( marquise_consumer consumer ) {

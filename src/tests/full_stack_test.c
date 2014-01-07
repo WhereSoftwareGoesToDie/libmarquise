@@ -14,9 +14,9 @@ typedef struct {
 } fixture;
 
 void setup( fixture *f, gconstpointer td ){
-        f->context = marquise_consumer_new("ipc:///tmp/marquise_full_stack_test", 0.2);
+        f->context = marquise_consumer_new( "ipc:///tmp/marquise_full_stack_test", 0.1 );
         g_assert( f->context );
-        f->connection = marquise_connect(f->context);
+        f->connection = marquise_connect( f->context );
         g_assert( f->connection );
 }
 void teardown( fixture *f, gconstpointer td ){
@@ -77,23 +77,31 @@ void many_messages( fixture *f, gconstpointer td ){
                                      , 20 ) != -1 );
         uint8_t *scratch = malloc(1024);
         uint8_t *decompressed = malloc(300000);
-        int received = zmq_recv( bind_sock, scratch, 1024, 0 );
-        g_assert_cmpint(received, >, 0);
 
-        int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (910 - 8), 300000 );
-        DataBurst *burst;
-        burst = data_burst__unpack(NULL, bytes, decompressed);
-        g_assert(burst);
-        for (i = 0; i < burst->n_frames; i++) {
-                g_assert_cmpint(burst->frames[i]->value_numeric, ==, 10);
-                g_assert_cmpint(burst->frames[i]->timestamp, ==, 20);
+        i = 0;
+        while( i < 8192 ) {
+                int received = zmq_recv( bind_sock, scratch, 1024, 0 );
+                g_assert_cmpint(received, >, 0);
+
+                int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (received - 8), 300000 );
+                DataBurst *burst;
+                burst = data_burst__unpack( NULL, bytes, decompressed );
+                g_assert( burst );
+
+                int j;
+                for ( j = 0; j < burst->n_frames; j++ ) {
+                        i++;
+                        g_assert_cmpint( burst->frames[j]->value_numeric, ==, 10 );
+                        g_assert_cmpint( burst->frames[j]->timestamp, ==, 20 );
+                }
+                data_burst__free_unpacked( burst, NULL );
+
+                g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
         }
 
-        data_burst__free_unpacked(burst, NULL);
         free( scratch );
         free( decompressed );
 
-        g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
         zmq_close( bind_sock );
         zmq_ctx_destroy( context );
