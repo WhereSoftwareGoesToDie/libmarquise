@@ -22,6 +22,7 @@ bindings
 ========
 
  - go: https://github.com/anchor/gomarquise
+ - haskell: https://github.com/anchor/marquise-haskell
 
 [0]: https://github.com/anchor/vaultaire
 [1]: http://zeromq.org/
