@@ -39,8 +39,8 @@ void one_message( fixture *f, gconstpointer td ){
         g_assert( bind_sock );
         g_assert( !zmq_bind( bind_sock, "ipc:///tmp/marquise_full_stack_test" ) );
 
-        uint8_t *scratch = malloc(512);
-        uint8_t *decompressed = malloc(512);
+        char *scratch = malloc(512);
+        char *decompressed = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
         g_assert_cmpint( recieved, ==, 37 );
         int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (37 - 8), 512 );
@@ -75,8 +75,8 @@ void many_messages( fixture *f, gconstpointer td ){
                                      , 1
                                      , 10
                                      , 20 ) != -1 );
-        uint8_t *scratch = malloc(1024);
-        uint8_t *decompressed = malloc(300000);
+        char *scratch = malloc( 1024 );
+        char *decompressed = malloc( 300000 );
 
         i = 0;
         while( i < 8192 ) {
@@ -85,7 +85,9 @@ void many_messages( fixture *f, gconstpointer td ){
 
                 int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (received - 8), 300000 );
                 DataBurst *burst;
-                burst = data_burst__unpack( NULL, bytes, decompressed );
+                burst = data_burst__unpack( NULL
+                                          , bytes
+                                          , (uint8_t *)decompressed );
                 g_assert( burst );
 
                 int j;
@@ -122,6 +124,7 @@ static void *server( void *args ) {
 
         zmq_close( bind_sock );
         zmq_ctx_destroy( context );
+        return NULL;
 }
 
 void defer_to_disk( fixture *f, gconstpointer td ){
