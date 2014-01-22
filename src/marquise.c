@@ -169,9 +169,10 @@ static void try_send_upstream( data_burst *burst, queue_args *args ) {
 
         // The second failure case is that upstream sends back an error as the
         // ack
+        // 
+        // In this case, we do not attempt to re-send, the burst is lost forever.
         fail_if( ret > 0
-               , marquise_defer_to_file( args->deferral_file, burst );
-                 free_databurst( burst );
+               , free_databurst( burst );
                  return;
                , "recieved upstream error: '%.*s'"
                , ret
