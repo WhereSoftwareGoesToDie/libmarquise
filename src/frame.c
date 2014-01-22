@@ -60,6 +60,19 @@ DataFrame *build_frame( char **tag_fields
                 return NULL;
         }
 
+        // User must specify an origin for now, this will change when
+        // authentication is added.
+        char *origin = getenv("LIBMARQUISE_ORIGIN");
+        if(!origin) {
+                free( frame );
+                errno = EINVAL;
+                return NULL;
+        }
+
+        frame->origin.len  = strlen( origin + 1 );
+        frame->origin.data = origin;
+        frame->has_origin  = 1;
+
         int i;
         for (i = 0; i < tag_count; ++i) {
                 frame->source[i] = build_frame_tag(tag_fields[i], tag_values[i]);

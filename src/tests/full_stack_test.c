@@ -42,9 +42,9 @@ void one_message( fixture *f, gconstpointer td ){
         char *scratch = malloc(512);
         char *decompressed = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 37 );
-        int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (37 - 8), 512 );
-        g_assert_cmpint( bytes, ==, 27 );
+        g_assert_cmpint( recieved, ==, 46 );
+        int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (46 - 8), 512 );
+        g_assert_cmpint( bytes, ==, 38 );
         free( scratch );
         free( decompressed );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
@@ -75,15 +75,16 @@ void many_messages( fixture *f, gconstpointer td ){
                                      , 1
                                      , 10
                                      , 20 ) != -1 );
-        char *scratch = malloc( 1024 );
+        char *scratch = malloc( 2048 );
         char *decompressed = malloc( 300000 );
 
         i = 0;
         while( i < 8192 ) {
-                int received = zmq_recv( bind_sock, scratch, 1024, 0 );
+                int received = zmq_recv( bind_sock, scratch, 2048, 0 );
                 g_assert_cmpint(received, >, 0);
 
                 int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (received - 8), 300000 );
+                g_assert_cmpint( bytes, >, 0);
                 DataBurst *burst;
                 burst = data_burst__unpack( NULL
                                           , bytes
@@ -118,7 +119,7 @@ static void *server( void *args ) {
 
         char *scratch = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 37 );
+        g_assert_cmpint( recieved, ==, 46 );
         free( scratch );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
@@ -153,6 +154,7 @@ void defer_to_disk( fixture *f, gconstpointer td ){
 }
 
 int main( int argc, char **argv ){
+        setenv("LIBMARQUISE_ORIGIN", "unit tests", 1);
         g_test_init( &argc, &argv, NULL);
         g_test_add( "/full_stack/one_message"
                   , fixture
