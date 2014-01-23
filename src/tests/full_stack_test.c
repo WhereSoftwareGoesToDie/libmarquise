@@ -42,9 +42,9 @@ void one_message( fixture *f, gconstpointer td ){
         char *scratch = malloc(512);
         char *decompressed = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 46 );
-        int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (46 - 8), 512 );
-        g_assert_cmpint( bytes, ==, 38 );
+        g_assert_cmpint( recieved, ==, 47 );
+        int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (47 - 8), 512 );
+        g_assert_cmpint( bytes, ==, 39 );
         free( scratch );
         free( decompressed );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
@@ -119,7 +119,7 @@ static void *server( void *args ) {
 
         char *scratch = malloc(512);
         int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 46 );
+        g_assert_cmpint( recieved, ==, 47 );
         free( scratch );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
