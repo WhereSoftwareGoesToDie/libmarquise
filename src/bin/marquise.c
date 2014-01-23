@@ -5,7 +5,6 @@
 #include <string.h>
 #include <strings.h>
 #include "marquise.h"
-#include "assert.h"
 
 int main( int argc, char **argv ) {
         if( argc != 4 ) {
@@ -44,7 +43,10 @@ int main( int argc, char **argv ) {
                 clock_gettime(CLOCK_REALTIME, &ts);
                 timestamp = ts.tv_sec * 1000000000 + ts.tv_nsec;
                 int ret = marquise_send_int( connection, field_buf, value_buf, 1, value, timestamp);
-                assert( ret != -1 );
+                if ( ret <= 0 ) {
+                        perror("marquise_send_int");
+                        exit(1);
+                }
         }
 
         printf( "Sent %d frames, waiting for ack.\n", n );

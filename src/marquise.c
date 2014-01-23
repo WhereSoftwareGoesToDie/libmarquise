@@ -582,7 +582,7 @@ int marquise_send_text( marquise_connection connection
                                       , source_count
                                       , timestamp
                                       , DATA_FRAME__TYPE__TEXT );
-        if( !frame ) return -1 ;
+        if( !frame ) return -1;
         frame->value_textual = data;
         return marquise_send_frame( connection, frame );
 }
@@ -598,7 +598,7 @@ int marquise_send_int( marquise_connection connection
                                       , source_count
                                       , timestamp
                                       , DATA_FRAME__TYPE__NUMBER);
-        if( !frame ) return -1 ;
+        if( !frame ) return -1;
         frame->value_numeric = data;
         frame->has_value_numeric = 1;
         return marquise_send_frame( connection, frame );
@@ -615,7 +615,7 @@ int marquise_send_real( marquise_connection connection
                                       , source_count
                                       , timestamp
                                       , DATA_FRAME__TYPE__REAL);
-        if( !frame ) return -1 ;
+        if( !frame ) return -1;
         frame->value_measurement = data;
         frame->has_value_measurement = 1;
         return marquise_send_frame( connection, frame );
@@ -631,7 +631,7 @@ int marquise_send_counter( marquise_connection connection
                                       , source_count
                                       , timestamp
                                       , DATA_FRAME__TYPE__EMPTY);
-        if( !frame ) return -1 ;
+        if( !frame ) return -1;
         return marquise_send_frame( connection, frame );
 }
 
@@ -647,7 +647,7 @@ int marquise_send_binary( marquise_connection connection
                                       , source_count
                                       , timestamp
                                       , DATA_FRAME__TYPE__BINARY);
-        if( !frame ) return -1 ;
+        if( !frame ) return -1;
         frame->value_blob.len = length;
         frame->value_blob.data = data;
         frame->has_value_blob = 1;
