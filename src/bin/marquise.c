@@ -43,7 +43,7 @@ int main( int argc, char **argv ) {
                 clock_gettime(CLOCK_REALTIME, &ts);
                 timestamp = ts.tv_sec * 1000000000 + ts.tv_nsec;
                 int ret = marquise_send_int( connection, field_buf, value_buf, 1, value, timestamp);
-                if ( ret <= 0 ) {
+                if ( ret == -1 ) {
                         perror("marquise_send_int");
                         exit(1);
                 }

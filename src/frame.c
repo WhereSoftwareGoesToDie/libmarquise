@@ -69,7 +69,7 @@ DataFrame *build_frame( char **tag_fields
                 return NULL;
         }
 
-        frame->origin.len  = strlen( origin + 1 );
+        frame->origin.len  = strlen( origin );
         frame->origin.data = origin;
         frame->has_origin  = 1;
 
