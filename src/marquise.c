@@ -551,7 +551,7 @@ int marquise_send_frame( marquise_connection connection
         data_frame__pack( frame, marshalled_frame );
         free_frame( frame );
 
-        int ret;
+        int ret, ackret;
         retry_send:
         ret = zmq_send( connection, marshalled_frame, length, 0);
         if( ret == -1  && errno == EINTR )
@@ -560,8 +560,8 @@ int marquise_send_frame( marquise_connection connection
         zmq_msg_t ack;
         zmq_msg_init( &ack );
         retry_recv:
-        ret = zmq_msg_recv( &ack, connection, 0 );
-        if( ret == -1  && errno == EINTR )
+        ackret = zmq_msg_recv( &ack, connection, 0 );
+        if( ackret == -1  && errno == EINTR )
                 goto retry_recv;
 
         zmq_msg_close( &ack );
