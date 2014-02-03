@@ -76,14 +76,14 @@ void many_messages( fixture *f, gconstpointer td ){
                                      , 10
                                      , 20 ) != -1 );
         char *scratch = malloc( 2048 );
-        char *decompressed = malloc( 300000 );
+        char *decompressed = malloc( 3000000 );
 
         i = 0;
         while( i < 8192 ) {
                 int received = zmq_recv( bind_sock, scratch, 2048, 0 );
                 g_assert_cmpint(received, >, 0);
 
-                int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (received - 8), 300000 );
+                int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (received - 8), 3000000 );
                 g_assert_cmpint( bytes, >, 0);
                 DataBurst *burst;
                 burst = data_burst__unpack( NULL
