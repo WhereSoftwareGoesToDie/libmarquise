@@ -352,8 +352,8 @@ static void *poller( void *args_p ) {
 
                         if( water_mark < high_water_mark ) {
                                 // Send upstream
-                                zmq_msg_init( (zmq_msg_t *)&water_mark->msg );
-                                zmq_msg_copy( (zmq_msg_t *)&water_mark->msg, &msg );
+                                zmq_msg_init( &water_mark->msg );
+                                zmq_msg_copy( &water_mark->msg, &msg );
 
                                 // Set time sent as now
                                 water_mark->time_sent = timestamp_now();
@@ -365,7 +365,7 @@ static void *poller( void *args_p ) {
                                 #define TRANSMIT_CLEANUP {                              \
                                         defer_msg( &msg, args->deferral_file );         \
                                         zmq_msg_close( &msg );                          \
-                                        zmq_msg_close( (zmq_msg_t *)&water_mark->msg ); \
+                                        zmq_msg_close( &water_mark->msg ); \
                                 }
 
                                 int ret;

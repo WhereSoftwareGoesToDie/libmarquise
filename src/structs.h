@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <glib.h>
+#include <zmq.h>
 
 typedef struct {
         char *path;
