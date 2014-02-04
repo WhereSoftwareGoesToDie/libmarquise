@@ -11,7 +11,7 @@ typedef struct {
 
 typedef struct {
         zmq_msg_t msg;
-        uint64_t time_sent;
+        uint64_t expiry;
         uint16_t msg_id;
 } message_in_flight;
 
@@ -24,6 +24,7 @@ typedef struct {
 typedef struct {
         void *upstream_sock;
         void *collator_sock;
+        void *self_sock;
         deferral_file *deferral_file;
 } poller_args;
 

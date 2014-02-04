@@ -147,7 +147,7 @@ static void send_message_list( GSList *message_list, void *destination_sock ) {
 
         free_databurst(burst);
 
-        debug_log( "Upstream zmq_send() returned %d\n", ret );
+        debug_log( "zmq_send() to poller returned %d\n", ret );
 
         fail_if( ret == -1
                ,  return;
@@ -210,7 +210,7 @@ static void *collator( void *args_p ) {
                         zmq_msg_init( msg );
                         int rx = zmq_msg_recv( msg, args->client_sock, 0 );
 
-                        fail_if( rx == -1 
+                        fail_if( rx == -1
                                , free( msg ); continue;
                                , "queue_loop: zmq_msg_recv: '%s'"
                                , strerror( errno ) );
@@ -225,6 +225,8 @@ static void *collator( void *args_p ) {
                                 free( msg );
                                 break;
                         }
+
+                        water_mark++;
 
                         // Prepend here so as to not traverse the entire list.
                         // We will reverse the list when we send it to preserve
@@ -256,9 +258,6 @@ static void *collator( void *args_p ) {
         // Flush the queue one last time before exit
         send_message_list( message_list, args->poller_sock );
 
-        // Ensure that any messages deferred to disk are sent.
-        data_burst *remaining;
-
         // All messages are sent, we now tell the poller thread to shutdown
         // cleanly and wait for it to send all messages upstream to the broker.
         int ret;
@@ -267,7 +266,7 @@ static void *collator( void *args_p ) {
         } while( ret == -1  && errno == EINTR );
 
         fail_if( ret == -1
-               , return;
+               , return NULL;
                , "zmq_send: %s", strerror( errno ) );
 
         // Wait for the ack from the poller thread
@@ -277,11 +276,11 @@ static void *collator( void *args_p ) {
         do {
                 ret = zmq_recvmsg( args->poller_sock, &ack, 0 );
         } while (ret  == -1 && errno == EINTR );
+
         fail_if( ret == -1
-               , return;
+               , return NULL;
                , "zmq_recvmsg: %s", strerror( errno ) );
         zmq_msg_close( &ack );
-
 
 
         // All done, we can send an ack to let marquise_consumer_shutdown
@@ -293,34 +292,57 @@ static void *collator( void *args_p ) {
         return NULL;
 }
 
-uint64_t timestamp_now() {
+static inline uint64_t timestamp_now() {
         struct timespec ts;
         // This is used for timeouts, so we simply return 0 to timeout right
         // now.
-        if (clock_gettime(CLOCK_REALTIME, &ts)) return 0;
-        return (ts.tv_sec*1000000000) + ts.tv_nsec;
+        if( clock_gettime(CLOCK_REALTIME, &ts) )
+                return 0;
+        return ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
 
 // Defer a zmq message to disk
-void defer_msg( zmq_msg_t *msg, deferral_file *df) {
+static inline void defer_msg( zmq_msg_t *msg, deferral_file *df ) {
         data_burst burst;
         burst.data = zmq_msg_data( msg );
         burst.length = zmq_msg_size( msg );
         marquise_defer_to_file( df, &burst );
 }
 
+// Retrieve a zmq message from disk
+static inline zmq_msg_t *retrieve_msg( deferral_file *df ) {
+        data_burst *burst = marquise_retrieve_from_file( df );
+        if( burst == NULL )
+                return NULL;
+
+        zmq_msg_t *msg = malloc( sizeof( zmq_msg_t ) );
+        zmq_msg_init_size( msg, burst->length );
+        memcpy( zmq_msg_data( msg ), burst->data, burst->length );
+        free_databurst( burst );
+        return msg;
+}
+
 // This can't be more than 65535 without changing the msg_id data type of the
 // message_in_flight struct.
-#define POLLER_HIGH_WATER_MARK 64
+#define POLLER_HIGH_WATER_MARK 128
+
+// Microseconds till a message expires
+#define POLLER_EXPIRY 60000000 // 60 seconds
+
+// How often to check disk for a deferred message
+#define POLLER_DEFER_PERIOD 1000000 // 1 second
 
 static void *poller( void *args_p ) {
+        uint64_t defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD;
         uint16_t msg_id = 0;
         poller_args *args = args_p;
         message_in_flight in_flight[POLLER_HIGH_WATER_MARK];
         message_in_flight *water_mark = in_flight;
         const message_in_flight const *high_water_mark =
                 &in_flight[POLLER_HIGH_WATER_MARK];
+        int shutting_down = 0;
+        int read_success = 0;
 
         zmq_pollitem_t items[] = {
                 // Poll from bursts coming from the collator thread
@@ -336,8 +358,11 @@ static void *poller( void *args_p ) {
         };
 
         while( 1 ) {
-                // Calculate the poll period till the next timer expiry.
-                if( zmq_poll( items, 2,  -1) == 1000 ) {
+                int poll_period = POLLER_DEFER_PERIOD / 1000;
+                poll_period     = shutting_down? 100 : poll_period;
+                poll_period     = read_success? 0 : poll_period;
+
+                if( zmq_poll( items, 2,  poll_period ) == -1 ) {
                                 syslog( LOG_ERR
                                 , "libmarquise error: zmq_poll "
                                         "got unknown error code: %d"
@@ -345,18 +370,40 @@ static void *poller( void *args_p ) {
                                 break;
                 }
 
+                // Check for incoming bursts from the collator thread, if we
+                // have one, attempt to send upstream.
                 if ( items [0].revents & ZMQ_POLLIN ) {
                         zmq_msg_t msg;
                         zmq_msg_init( &msg );
                         int rx = zmq_msg_recv( &msg, args->collator_sock, 0 );
+                        fail_if( rx == -1
+                               , zmq_msg_close( &msg ); continue;
+                               , "zmq_msg_recv: %s"
+                               , strerror( errno ) );
+
+                        if(  rx == 3
+                          && !strncmp( zmq_msg_data( &msg ), "DIE", 3 ) ) {
+                                zmq_msg_close( &msg );
+                                shutting_down = 1;
+                                continue;
+                        }
+
+                        // Ack immediately
+                        fail_if( zmq_send( args->collator_sock, "", 0, 0 ) == -1
+                               ,
+                               , "zmq_send (collator ack)");
 
                         if( water_mark < high_water_mark ) {
+                                debug_log( "Free slots: %d / %d\n"
+                                         , high_water_mark - water_mark
+                                         , high_water_mark - in_flight );
+
                                 // Send upstream
                                 zmq_msg_init( &water_mark->msg );
                                 zmq_msg_copy( &water_mark->msg, &msg );
 
                                 // Set time sent as now
-                                water_mark->time_sent = timestamp_now();
+                                water_mark->expiry = timestamp_now() + POLLER_EXPIRY;
 
                                 // Tack on our message id;
                                 msg_id++;
@@ -368,20 +415,33 @@ static void *poller( void *args_p ) {
                                         zmq_msg_close( &water_mark->msg ); \
                                 }
 
-                                int ret;
+                                int tx;
                                 do {
-                                        zmq_send( args->upstream_sock
+                                        tx = zmq_send( args->upstream_sock
                                                 , (void *)&msg_id
                                                 , sizeof(msg_id)
                                                 , ZMQ_SNDMORE );
-                                } while( ret == -1 && errno == EINTR );
+                                } while( tx == -1 && errno == EINTR );
 
-                                fail_if( ret == -1
+                                debug_log( "zmq_send() of msg_id to broker returned %d\n", tx );
+
+                                fail_if( tx == -1
                                        , TRANSMIT_CLEANUP; continue;
                                        , "zmq_send: %s"
                                        , strerror( errno ) );
 
-                                // XXX send the &msg
+                                do {
+                                        tx = zmq_sendmsg( args->upstream_sock
+                                                    , &msg
+                                                    , 0 );
+                                } while( tx == -1 && errno == EINTR );
+
+                                debug_log( "zmq_send() of burst to broker returned %d\n", tx );
+
+                                fail_if( tx == -1
+                                       , TRANSMIT_CLEANUP; continue;
+                                       , "zmq_send: %s"
+                                       , strerror( errno ) );
 
                         } else {
                                 // Defer to disk as there are already too many
@@ -390,11 +450,130 @@ static void *poller( void *args_p ) {
                                 zmq_msg_close( &msg );
                         }
 
-                        // XXX check for acks, checking for deferred messages, check timeouts
-
                 }
 
+
+                // Check for acks coming from the broker, remove them
+                // from our inflight list if they match.
+                if( items [1].revents & ZMQ_POLLIN ) {
+                        // The first parst of the message is the
+                        // message ID, the second is the ack. The ack
+                        // is empty on success and contains an error
+                        // message on failure.
+                        zmq_msg_t msg_id, ack;
+                        zmq_msg_init( &msg_id );
+                        zmq_msg_init( &ack );
+
+                        int rx = zmq_msg_recv( &msg_id, args->upstream_sock, 0 );
+
+                        debug_log( "zmq_recv() of ack id from broker returned %d\n", rx );
+
+                        if( rx != sizeof(uint16_t) ) {
+                                zmq_msg_close( &msg_id );
+                                zmq_msg_close( &ack );
+                                continue;
+                        }
+
+                        rx = zmq_msg_recv( &ack, args->upstream_sock, 0 );
+                        if( rx == -1 ) {
+                                zmq_msg_close( &msg_id );
+                                zmq_msg_close( &ack );
+                                continue;
+                        }
+
+                        debug_log( "zmq_recv() of ack msg from broker returned %d\n", rx );
+
+                        // Both failure and success require removal
+                        // from our inflight list, so we treat both the
+                        // same in terms of searching and removal.
+                        // Which we shall do now:
+
+                        message_in_flight *i;
+                        uint8_t *ack_msg_id = zmq_msg_data( &msg_id );
+
+                        // If we have a match, remove this element from
+                        // the inflight list by replacing it with the
+                        // last element then decrementing the
+                        // water_mark pointer.
+                        for(i = in_flight; i < water_mark; i++)
+                        {
+                                if(i->msg_id == *ack_msg_id) {
+                                        zmq_msg_close( &i->msg );
+                                        *i = *water_mark--;
+                                }
+                        }
+
+                        // If we got an error, syslog will want to know about it.
+                        // This means data loss.
+                        fail_if( rx > 0
+                               ,
+                               , "recieved error from broker: '%.*s'"
+                               , rx
+                               , (char *)zmq_msg_data( &ack ) );
+                }
+
+                // Now we just need to check for timeouts and deferred messages
+                // and we're done!
+                uint64_t now = timestamp_now();
+                message_in_flight *i;
+                for( i = in_flight; i < water_mark; i++ )
+                {
+                        if( i->expiry > now ) {
+                                // Expired, remove it from the list and
+                                // defer to disk. Another possible option here
+                                // would be to re-transmit to ourselves for
+                                // immediate retry.
+                                defer_msg( &i->msg, args->deferral_file );
+                                zmq_msg_close( &i->msg );
+                                *i = *water_mark--;
+                        }
+                }
+
+                // Check if we need to get a deferred message
+                if( defer_expiry > now  || shutting_down || read_success ) {
+                        // Ensure that there are free slots
+                        if( water_mark == high_water_mark ) continue;
+
+                        zmq_msg_t *deferred = retrieve_msg( args->deferral_file );
+                        if( deferred == NULL ) {
+                                read_success = 0;
+                                // Terminating case for shutdown, the disk
+                                // currently has no messsages outstanding. If
+                                // we have an empty in flight list, then we are
+                                // ready to shutdown.
+                                if( shutting_down && water_mark == in_flight ) {
+                                        break;
+                                }
+                                continue;
+                        } else {
+                                read_success = 1;
+                        }
+
+                        // We have a deferred message, send it to ourselves.
+                        int tx;
+                        do {
+                                tx = zmq_sendmsg( args->self_sock
+                                                , deferred
+                                                , 0 );
+                        } while( tx == -1 && errno == EINTR );
+
+                        fail_if( tx == -1
+                               , defer_msg( deferred, args->deferral_file );
+                                 zmq_msg_close( deferred );
+                               , "zmq_send: %s"
+                               , strerror( errno ) );
+
+                        free( deferred );
+                }
         }
+
+        // Send the ack to notify that we have shutdown.
+        zmq_send( args->collator_sock, "", 0, 0 );
+        zmq_close( args->collator_sock );
+        zmq_close( args->self_sock );
+        zmq_close( args->upstream_sock );
+
+        return NULL;
 }
 
 #define ctx_fail_if( assertion, action, ... )             \
@@ -417,7 +596,7 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         // Set up the client facing REP socket.
         void *collator_rep_socket = zmq_socket( context, ZMQ_REP );
         ctx_fail_if( !collator_rep_socket
-                   , zmq_close( collator_rep_socket );
+                   ,
                    , "zmq_socket: '%s'"
                    , strerror( errno ) );
 
@@ -426,14 +605,12 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , "zmq_bind: '%s'"
                    , strerror( errno ) );
 
- 
         // And then the internal collater to poller sockets, note that the bind
         // must happen before the connect, this is a "feature" of inproc
         // sockets.
         void *poller_rep_socket = zmq_socket( context, ZMQ_REP );
         ctx_fail_if( !poller_rep_socket
-                   , zmq_close( poller_rep_socket );
-                     zmq_close( collator_rep_socket );
+                   , zmq_close( collator_rep_socket );
                    , "zmq_socket: '%s'"
                    , strerror( errno ) );
 
@@ -445,8 +622,7 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
 
         void *poller_req_socket = zmq_socket( context, ZMQ_REQ );
         ctx_fail_if( !poller_req_socket
-                   , zmq_close( poller_req_socket );
-                     zmq_close( poller_rep_socket );
+                   , zmq_close( poller_rep_socket );
                      zmq_close( collator_rep_socket );
                    , "zmq_socket: '%s'"
                    , strerror( errno ) );
@@ -458,13 +634,30 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , "zmq_bind: '%s'"
                    , strerror( errno ) );
 
+        // The poller wants to be able to talk to itself.
+        void *poller_req_self_socket = zmq_socket( context, ZMQ_REQ );
+        ctx_fail_if( !poller_req_self_socket
+                   , zmq_close( poller_req_socket );
+                     zmq_close( poller_rep_socket );
+                     zmq_close( collator_rep_socket );
+                   , "zmq_socket: '%s'"
+                   , strerror( errno ) );
+
+        ctx_fail_if( zmq_connect( poller_req_self_socket, "inproc://poller" )
+                   , zmq_close( poller_req_socket );
+                     zmq_close( poller_rep_socket );
+                     zmq_close( poller_req_self_socket );
+                     zmq_close( collator_rep_socket );
+                   , "zmq_bind: '%s'"
+                   , strerror( errno ) );
+
         // Finally, the upstream socket (connecting to the broker)
-        void *upstream_dealer_socket = zmq_socket( context, ZMQ_REQ );
+        void *upstream_dealer_socket = zmq_socket( context, ZMQ_DEALER );
         ctx_fail_if( !upstream_dealer_socket
                    , zmq_close( poller_rep_socket );
                      zmq_close( poller_rep_socket );
                      zmq_close( collator_rep_socket );
-                     zmq_close( upstream_dealer_socket );
+                     zmq_close( poller_req_self_socket );
                   , "zmq_socket: '%s'"
                   , strerror( errno ) );
 
@@ -472,6 +665,7 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , zmq_close( poller_rep_socket );
                      zmq_close( poller_rep_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( poller_req_self_socket );
                      zmq_close( upstream_dealer_socket );
                    , "zmq_connect: '%s'"
                    , strerror( errno ) );
@@ -480,7 +674,7 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         // have by now.
         //
         // We now initialize two threads, a collator and a poller.
-        // 
+        //
         // The collator listens to frames sent by the user and periodically
         // flushes them to the poller when the high water mark is reached or
         // when a timer has elapsed. This way we get regular bursts into the
@@ -490,9 +684,10 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         // from the collator upstream.
 
         // We will want to wrap up soon as this state is becoming messy:
-        #define CLEANUP { zmq_close( poller_req_socket ); \
-                          zmq_close( poller_rep_socket ); \
-                          zmq_close( collator_rep_socket ); \
+        #define CLEANUP { zmq_close( poller_req_socket );      \
+                          zmq_close( poller_rep_socket );      \
+                          zmq_close( poller_req_self_socket ); \
+                          zmq_close( collator_rep_socket );    \
                           zmq_close( upstream_dealer_socket ); }
 
 
@@ -518,18 +713,19 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , CLEANUP
                    , "pthread_detach returned: '%d'", err );
 
-
         // The collator is running, now we start the poller thread.
         poller_args *poller_args = malloc( sizeof( poller_args ) );
         ctx_fail_if( !poller_args, CLEANUP, "malloc" );
+
         poller_args->upstream_sock = upstream_dealer_socket;
         poller_args->collator_sock = poller_rep_socket;
+        poller_args->self_sock     = poller_req_self_socket;
+
         poller_args->deferral_file = marquise_deferral_file_new();
         ctx_fail_if( ! poller_args->deferral_file
                    , CLEANUP
                    , "mkstemp: '%s'"
                    , strerror( errno ) );
-
 
         pthread_t poller_pthread;
         err = pthread_create( &poller_pthread
@@ -550,13 +746,13 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
 }
 
 void marquise_consumer_shutdown( marquise_consumer consumer ) {
+        debug_log("Consumer shutdown called\n");
         void *connection = marquise_connect( consumer );
         if( !connection )
                 return;
 
         if( zmq_send( connection, "DIE", 3, 0 ) == -1 )
                 return;
-
 
         // The consumer thread will signal when it is done cleaning up.
         zmq_msg_t ack;
@@ -572,21 +768,22 @@ void marquise_consumer_shutdown( marquise_consumer consumer ) {
         zmq_msg_close( &ack );
 
         zmq_close( connection );
+        debug_log("calling destroy()\n");
         zmq_ctx_destroy( consumer );
+        debug_log("done()\n");
 }
 
-#define conn_fail_if( assertion, ... ) do {            \
+#define conn_fail_if( assertion, ... ) \
         fail_if( assertion                             \
                , zmq_close( connection ); return NULL; \
                , __VA_ARGS__ );                        \
-        } while( 0 )
 
 marquise_connection marquise_connect( marquise_consumer consumer ) {
         void *connection = zmq_socket( consumer, ZMQ_REQ );
         conn_fail_if( !connection
                     , "marquise_connect: zmq_socket: '%s'"
                     , strerror( errno ) );
-        conn_fail_if( zmq_connect( connection, "inproc://queue" )
+        conn_fail_if( zmq_connect( connection, "inproc://collator" )
                     , "marquise_connect: zmq_connect: '%s'"
                     , strerror( errno ) );
         return connection;
@@ -604,6 +801,7 @@ int marquise_send_frame( marquise_connection connection
 
         data_frame__pack( frame, marshalled_frame );
         free_frame( frame );
+
 
         int ret;
         retry_send:
