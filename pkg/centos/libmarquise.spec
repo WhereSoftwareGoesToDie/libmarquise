@@ -1,7 +1,7 @@
 Name:	        libmarquise	
 # Build with tagged release v1.0.4 from 
 # https://github.com/anchor/libmarquise
-Version:	1.0.4
+Version:	1.0.5
 Release:	1.0anchor1%{?dist}
 Summary:	libmarquise is a library for writing data frames to vaultaire
 
@@ -65,6 +65,8 @@ rm -rf %{buildroot}
 %{_libdir}/libmarquise.la
 
 %changelog
+* Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0.5-0anchor1
+- Bump to 1.0.5 (new protobuf version)
 * Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0.4-0anchor1
 - Bump to 1.0.4
 * Tue Dec 31 2013 Sharif Olorin <sio@tesser.org> - 1.0.3-0anchor1
