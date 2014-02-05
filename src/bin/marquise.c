@@ -49,10 +49,9 @@ int main( int argc, char **argv ) {
                 }
         }
 
-        printf( "Sent %d frames, waiting for ack.\n", n );
-
+        printf( "Sent %d frames, waiting for shutdown.\n", n );
         marquise_close( connection );
         marquise_consumer_shutdown( consumer );
-        puts( "Got ack, shutting down." );
+        printf( "All done.\n", n );
         return 0;
 }

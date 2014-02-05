@@ -409,7 +409,7 @@ static void *poller( void *args_p ) {
                                 // currently has no messsages outstanding. If
                                 // we have an empty in flight list, then we are
                                 // ready to shutdown.
-                                if( shutting_down && water_mark <= in_flight ) {
+                                if( shutting_down && water_mark < in_flight ) {
                                         break;
                                 }
                         } else {
@@ -788,9 +788,7 @@ void marquise_consumer_shutdown( marquise_consumer consumer ) {
         zmq_msg_close( &ack );
         assert( zmq_close( connection ) == 0);
 
-        debug_log("calling destroy()\n");
         zmq_ctx_destroy( consumer );
-        debug_log("done()\n");
 }
 
 #define conn_fail_if( assertion, ... ) \
