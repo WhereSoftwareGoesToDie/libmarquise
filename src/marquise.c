@@ -140,9 +140,9 @@ static void send_message_list( GSList *message_list, void *destination_sock ) {
         int ret;
         do {
                 ret = zmq_send( destination_sock
-                        , burst->data
-                        , burst->length
-                        , 0 );
+                              , burst->data
+                              , burst->length
+                              , 0 );
         } while( ret == -1 && errno == EINTR );
 
         free_databurst(burst);
