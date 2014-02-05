@@ -35,18 +35,34 @@ void one_message( fixture *f, gconstpointer td ){
         // Now start up the server and expect them all.
         void *context = zmq_ctx_new();
         g_assert( context );
-        void *bind_sock = zmq_socket( context, ZMQ_REP );
+        void *bind_sock = zmq_socket( context, ZMQ_ROUTER );
         g_assert( bind_sock );
         g_assert( !zmq_bind( bind_sock, "ipc:///tmp/marquise_full_stack_test" ) );
 
         char *scratch = malloc(512);
         char *decompressed = malloc(512);
-        int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 47 );
+
+        // Ident
+        zmq_msg_t ident;
+        zmq_msg_init(&ident);
+        int received = zmq_recvmsg( bind_sock, &ident, 0 );
+        g_assert_cmpint( received, >, 0 );
+
+        // Msg_id
+        uint16_t msg_id;
+        received = zmq_recv( bind_sock, &msg_id, 2, 0 );
+        g_assert_cmpint( received, ==, sizeof( uint16_t ) );
+
+        // Msg
+        received = zmq_recv( bind_sock, scratch, 512, 0 );
+        g_assert_cmpint( received, ==, 47 );
         int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (47 - 8), 512 );
         g_assert_cmpint( bytes, ==, 39 );
         free( scratch );
         free( decompressed );
+
+        g_assert( zmq_msg_send( &ident, bind_sock, ZMQ_SNDMORE ) != -1 );
+        g_assert( zmq_send( bind_sock, &msg_id, sizeof(msg_id), ZMQ_SNDMORE ) != -1 );
         g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
 
         zmq_close( bind_sock );
@@ -59,7 +75,7 @@ void many_messages( fixture *f, gconstpointer td ){
         // difference there.
         void *context = zmq_ctx_new();
         g_assert( context );
-        void *bind_sock = zmq_socket( context, ZMQ_REP );
+        void *bind_sock = zmq_socket( context, ZMQ_ROUTER );
         g_assert( bind_sock );
         g_assert( !zmq_bind( bind_sock, "ipc:///tmp/marquise_full_stack_test" ) );
 
@@ -80,7 +96,18 @@ void many_messages( fixture *f, gconstpointer td ){
 
         i = 0;
         while( i < 8192 ) {
-                int received = zmq_recv( bind_sock, scratch, 2048, 0 );
+                // Ident
+                zmq_msg_t ident;
+                zmq_msg_init(&ident);
+                int received = zmq_recvmsg( bind_sock, &ident, 0 );
+                g_assert_cmpint( received, >, 0 );
+
+                // Msg_id
+                uint16_t msg_id;
+                received = zmq_recv( bind_sock, &msg_id, 2, 0 );
+                g_assert_cmpint( received, ==, sizeof( uint16_t ) );
+
+                received = zmq_recv( bind_sock, scratch, 2048, 0 );
                 g_assert_cmpint(received, >, 0);
 
                 int bytes = LZ4_decompress_safe( scratch + 8, decompressed, (received - 8), 300000 );
@@ -99,6 +126,8 @@ void many_messages( fixture *f, gconstpointer td ){
                 }
                 data_burst__free_unpacked( burst, NULL );
 
+                g_assert( zmq_msg_send( &ident, bind_sock, ZMQ_SNDMORE ) != -1 );
+                g_assert( zmq_send( bind_sock, &msg_id, sizeof(msg_id), ZMQ_SNDMORE ) != -1 );
                 g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
         }
 
@@ -108,49 +137,6 @@ void many_messages( fixture *f, gconstpointer td ){
 
         zmq_close( bind_sock );
         zmq_ctx_destroy( context );
-}
-
-static void *server( void *args ) {
-        void *context = zmq_ctx_new();
-        g_assert( context );
-        void *bind_sock = zmq_socket( context, ZMQ_REP );
-        g_assert( bind_sock );
-        g_assert( !zmq_bind( bind_sock, "ipc:///tmp/marquise_full_stack_test" ) );
-
-        char *scratch = malloc(512);
-        int recieved = zmq_recv( bind_sock, scratch, 512, 0 );
-        g_assert_cmpint( recieved, ==, 47 );
-        free( scratch );
-        g_assert( zmq_send( bind_sock, "", 0, 0 ) != -1 );
-
-        zmq_close( bind_sock );
-        zmq_ctx_destroy( context );
-        return NULL;
-}
-
-void defer_to_disk( fixture *f, gconstpointer td ){
-        char *field_buf[] = {"foo"};
-        char *value_buf[] = {"bar"};
-
-        // Send one message
-        g_assert( marquise_send_int( f->connection, field_buf, value_buf, 1, 10, 20 )
-                  != -1 );
-
-        // Now sleep till the file is deferred to disk at least once. This
-        // should cause some syslog errors.
-        sleep( 4 );
-
-        // Start a server in a new thread.
-        pthread_t server_thread;
-        g_assert( !pthread_create( &server_thread
-                                 , NULL
-                                 , server
-                                 , NULL ) );
-
-
-        // And shutdown the connection immediately.
-        marquise_close( f->connection );
-        marquise_consumer_shutdown( f->context );
 }
 
 int main( int argc, char **argv ){
@@ -168,12 +154,6 @@ int main( int argc, char **argv ){
                   , setup
                   , many_messages
                   , teardown );
-        g_test_add( "/full_stack/defer_to_disk"
-                  , fixture
-                  , NULL
-                  , setup
-                  , defer_to_disk
-                  , NULL );
         return g_test_run();
         return g_test_run();
 }

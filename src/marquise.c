@@ -402,7 +402,7 @@ static void *poller( void *args_p ) {
                                 // currently has no messsages outstanding. If
                                 // we have an empty in flight list, then we are
                                 // ready to shutdown.
-                                if( shutting_down && water_mark == in_flight ) {
+                                if( shutting_down && water_mark <= in_flight ) {
                                         break;
                                 }
                         } else {
@@ -661,7 +661,7 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         void *upstream_dealer_socket = zmq_socket( context, ZMQ_DEALER );
         ctx_fail_if( !upstream_dealer_socket
                    , zmq_close( poller_rep_socket );
-                     zmq_close( poller_rep_socket );
+                     zmq_close( poller_req_socket );
                      zmq_close( collator_rep_socket );
                      zmq_close( poller_req_self_socket );
                   , "zmq_socket: '%s'"
@@ -669,7 +669,7 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
 
         ctx_fail_if( zmq_connect( upstream_dealer_socket, broker )
                    , zmq_close( poller_rep_socket );
-                     zmq_close( poller_rep_socket );
+                     zmq_close( poller_req_socket );
                      zmq_close( collator_rep_socket );
                      zmq_close( poller_req_self_socket );
                      zmq_close( upstream_dealer_socket );
