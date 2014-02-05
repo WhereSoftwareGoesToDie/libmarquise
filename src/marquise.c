@@ -171,6 +171,9 @@ static void send_message_list( GSList *message_list, void *destination_sock ) {
 // Here, we poll the client socket, passing collated and compressed data bursts
 // through to the poller thread whenever a high water mark is reached or a
 // timeout has triggered.
+
+#define COLLATOR_MAX_MESSAGES 4096
+#define COLLATOR_MAX_RX 131072 // 128 KB
 static void *collator( void *args_p ) {
         collator_args *args = args_p;
         GTimer *timer = g_timer_new();
@@ -178,7 +181,7 @@ static void *collator( void *args_p ) {
         gulong ms; // Useless, microseconds for gtimer_elapsed
 
         unsigned int water_mark            = 0;
-        const unsigned int high_water_mark = 5000;
+        unsigned int rxed                  = 0;
 
         int poll_ms = floor( 1000 * args->poll_period );
 
@@ -227,6 +230,7 @@ static void *collator( void *args_p ) {
                         }
 
                         water_mark++;
+                        rxed += rx;
 
                         // Prepend here so as to not traverse the entire list.
                         // We will reverse the list when we send it to preserve
@@ -246,12 +250,14 @@ static void *collator( void *args_p ) {
                 // reached, we collate our message list and then  send it to
                 // the poller thread.
                 if(  g_timer_elapsed( timer, &ms ) > args->poll_period
-                  || water_mark >= high_water_mark ) {
+                  || water_mark >= COLLATOR_MAX_MESSAGES
+                  || rxed >= COLLATOR_MAX_RX ) {
                         send_message_list( message_list, args->poller_sock  );
 
                         message_list = NULL;
                         g_timer_reset(timer);
                         water_mark = 0;
+                        rxed = 0;
                 }
         }
 
@@ -327,7 +333,7 @@ static inline zmq_msg_t *retrieve_msg( deferral_file *df ) {
 
 // This can't be more than 65535 without changing the msg_id data type of the
 // message_in_flight struct.
-#define POLLER_HIGH_WATER_MARK 8
+#define POLLER_HIGH_WATER_MARK 128
 
 // Microseconds till a message expires
 #define POLLER_EXPIRY 60000000000 // 60 seconds
