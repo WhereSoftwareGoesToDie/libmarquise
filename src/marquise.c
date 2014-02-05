@@ -831,7 +831,7 @@ int marquise_send_frame( marquise_connection connection
 
         zmq_msg_t ack;
         zmq_msg_init( &ack );
-	int ack_ret;
+        int ack_ret;
         retry_recv:
         ack_ret = zmq_msg_recv( &ack, connection, 0 );
         if( ack_ret == -1  && errno == EINTR )
