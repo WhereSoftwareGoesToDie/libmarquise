@@ -341,9 +341,9 @@ static void *poller( void *args_p ) {
         poller_args *args = args_p;
         message_in_flight *in_flight =
                 calloc( sizeof( message_in_flight ), POLLER_HIGH_WATER_MARK );
-        message_in_flight *water_mark = in_flight;
+        message_in_flight *water_mark = in_flight - 1;
         const message_in_flight const *high_water_mark =
-                &in_flight[POLLER_HIGH_WATER_MARK];
+                &in_flight[POLLER_HIGH_WATER_MARK - 1];
         int shutting_down = 0;
         int read_success = 0;
         zmq_msg_t *deferred_msg = NULL;
@@ -378,7 +378,7 @@ static void *poller( void *args_p ) {
                 // Check for timeouts
                 uint64_t now = timestamp_now();
                 message_in_flight *i;
-                for( i = in_flight; i < water_mark; i++ )
+                for( i = in_flight; i <= water_mark; i++ )
                 {
                         if( now > i->expiry ) {
                                 // Expired, remove it from the list and
@@ -393,7 +393,8 @@ static void *poller( void *args_p ) {
                 }
 
                 // Check if we need to get a deferred message
-                if( defer_expiry > now  || shutting_down || read_success
+                deferred_msg = NULL;
+                if( (defer_expiry > now  || shutting_down || read_success)
                   && water_mark != high_water_mark ) {
                         deferred_msg = retrieve_msg( args->deferral_file );
                         if( deferred_msg == NULL ) {
@@ -443,6 +444,9 @@ static void *poller( void *args_p ) {
                                          , high_water_mark - water_mark
                                          , high_water_mark - in_flight );
 
+                                // Move our water mark to the next avaliable slot
+                                water_mark++;
+
                                 // Send upstream
                                 zmq_msg_init( &water_mark->msg );
                                 zmq_msg_copy( &water_mark->msg, msg );
@@ -454,10 +458,11 @@ static void *poller( void *args_p ) {
                                 msg_id++;
                                 water_mark->msg_id = msg_id;
 
-                                #define TRANSMIT_CLEANUP {                              \
-                                        defer_msg( msg, args->deferral_file );         \
-                                        zmq_msg_close( msg );                          \
-                                        zmq_msg_close( &water_mark->msg ); \
+                                #define TRANSMIT_CLEANUP {                     \
+                                        defer_msg( msg, args->deferral_file ); \
+                                        zmq_msg_close( msg );                  \
+                                        zmq_msg_close( &water_mark->msg );     \
+                                        water_mark--;                           \
                                 }
 
                                 int tx;
@@ -474,7 +479,6 @@ static void *poller( void *args_p ) {
                                        , TRANSMIT_CLEANUP; continue;
                                        , "zmq_send: %s"
                                        , strerror( errno ) );
-
                                 do {
                                         tx = zmq_sendmsg( args->upstream_sock
                                                     , msg
@@ -488,9 +492,6 @@ static void *poller( void *args_p ) {
                                        , "zmq_send: %s"
                                        , strerror( errno ) );
 
-                                // Our transmit is successful by now, so we
-                                // increment the water mark.
-                                water_mark++;
                         } else {
                                 // Defer to disk as there are already too many
                                 // messages in flight.
@@ -540,15 +541,15 @@ static void *poller( void *args_p ) {
                         message_in_flight *i;
                         uint16_t *ack_msg_id = zmq_msg_data( &msg_id );
 
+
                         // If we have a match, remove this element from
                         // the inflight list by replacing it with the
                         // last element then decrementing the
                         // water_mark pointer.
-                        for( i = in_flight; i < water_mark; i++ )
+                        for( i = in_flight; i <= water_mark; i++ )
                         {
                                 if( i->msg_id == *ack_msg_id ) {
                                         zmq_msg_close( &i->msg );
-                                        debug_log("decrementing water mark due to ack\n");
                                         *i = *water_mark;
                                         water_mark--;
                                 }
@@ -572,6 +573,8 @@ static void *poller( void *args_p ) {
         zmq_close( args->collator_sock );
         zmq_close( args->self_sock );
         zmq_close( args->upstream_sock );
+
+        marquise_deferral_file_close( args->deferral_file );
 
         free( args );
         free( in_flight );
