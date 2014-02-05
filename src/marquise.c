@@ -296,6 +296,7 @@ static void *collator( void *args_p ) {
         zmq_close( args->poller_sock );
 
         free( args );
+        g_timer_destroy( timer );
 
         return NULL;
 }
@@ -425,7 +426,7 @@ static void *poller( void *args_p ) {
                                 zmq_msg_init( msg );
                                 int rx = zmq_msg_recv( msg, args->collator_sock, 0 );
                                 fail_if( rx == -1
-                                       , zmq_msg_close( msg ); continue;
+                                       , zmq_msg_close( msg ); free( msg ); continue;
                                        , "zmq_msg_recv: %s"
                                        , strerror( errno ) );
 
@@ -433,6 +434,7 @@ static void *poller( void *args_p ) {
                                 && !strncmp( zmq_msg_data( msg ), "DIE", 3 ) ) {
                                         zmq_msg_close( msg );
                                         shutting_down = 1;
+                                        free( msg );
                                         continue;
                                 }
 
@@ -468,7 +470,8 @@ static void *poller( void *args_p ) {
                                         defer_msg( msg, args->deferral_file ); \
                                         zmq_msg_close( msg );                  \
                                         zmq_msg_close( &water_mark->msg );     \
-                                        water_mark--;                           \
+                                        free( msg );                           \
+                                        water_mark--;                          \
                                 }
 
                                 int tx;
@@ -581,6 +584,7 @@ static void *poller( void *args_p ) {
         zmq_close( args->upstream_sock );
 
         marquise_deferral_file_close( args->deferral_file );
+        marquise_deferral_file_free( args->deferral_file );
 
         free( args );
         free( in_flight );
