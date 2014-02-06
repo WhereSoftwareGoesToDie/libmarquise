@@ -18,6 +18,8 @@
 #include <string.h>
 #include <math.h>
 
+#define LIBMARQUISE_PROFILING
+
 static void debug_log( char *format, ...) {
         if( !getenv( "LIBMARQUISE_DEBUG" ) )
                 return;
@@ -27,6 +29,12 @@ static void debug_log( char *format, ...) {
         vfprintf( stderr, format, args );
         va_end( args );
 }
+
+#ifdef LIBMARQUISE_PROFILING
+#define INC_COUNTER(_counter) ((_counter)++)
+#else
+#define INC_COUNTER(_counter)
+#endif
 
 static frame *accumulate_databursts( gpointer zmq_message, gint *queue_length )
 {
@@ -250,7 +258,6 @@ static void *collator( void *args_p ) {
                                , "queue_loop: zmq_msg_recv: '%s'"
                                , strerror( errno ) );
 
-
                         water_mark++;
                         rxed += rx;
 
@@ -371,6 +378,19 @@ static void *poller( void *args_p ) {
         int read_success = 0;
         zmq_msg_t *deferred_msg = NULL;
 
+#ifdef LIBMARQUISE_PROFILING
+	uint64_t messages_in = 0;
+	uint64_t messages_in_special = 0;
+	uint64_t acks_sent = 0;
+	uint64_t messages_sent_upstream = 0;
+	uint64_t acks_received_from_upstream = 0;
+	uint64_t messages_timed_out = 0;
+	uint64_t messages_deferred_to_disk = 0;
+	uint64_t messages_deferred_to_memory = 0;
+	uint64_t messages_read_from_disk = 0;
+	uint64_t poll_loops = 0;
+#endif
+
         zmq_pollitem_t items[] = {
                 // Poll from bursts coming from the collator thread
                 { args->collator_sock
@@ -390,6 +410,7 @@ static void *poller( void *args_p ) {
                 poll_period     = read_success? 0 : poll_period;
                 read_success    = 0;
 
+                INC_COUNTER(poll_loops);
                 if( zmq_poll( items, 2,  poll_period ) == -1 ) {
                                 syslog( LOG_ERR
                                 , "libmarquise error: zmq_poll "
@@ -412,6 +433,8 @@ static void *poller( void *args_p ) {
                                 zmq_msg_close( &i->msg );
                                 *i = *water_mark;
                                 water_mark--;
+                                INC_COUNTER(messages_timed_out);
+                                INC_COUNTER(messages_deferred_to_disk);
                         }
                 }
 
@@ -430,6 +453,7 @@ static void *poller( void *args_p ) {
                                 }
                         } else {
                                 read_success = 1;
+                                INC_COUNTER(messages_read_from_disk);
                         }
                 }
 
@@ -448,17 +472,19 @@ static void *poller( void *args_p ) {
 
                                 if(  rx == 3
                                 && !strncmp( zmq_msg_data( msg ), "DIE", 3 ) ) {
+                                        INC_COUNTER(messages_in_special);
                                         zmq_msg_close( msg );
                                         shutting_down = 1;
                                         free( msg );
                                         continue;
                                 }
+                                INC_COUNTER(messages_in);
 
                                 // Ack immediately
                                 fail_if( zmq_send( args->collator_sock, "", 0, 0 ) == -1
                                        ,
                                        , "zmq_send (collator ack)");
-
+                                INC_COUNTER(acks_sent);
                         } else {
                                 msg = deferred_msg;
                         }
@@ -514,14 +540,17 @@ static void *poller( void *args_p ) {
 
                                 fail_if( tx == -1
                                        , TRANSMIT_CLEANUP; continue;
+                                         INC_COUNTER(messages_deferred_to_disk);
                                        , "zmq_send: %s"
                                        , strerror( errno ) );
 
+                                INC_COUNTER(messages_sent_upstream);
                         } else {
                                 // Defer to disk as there are already too many
                                 // messages in flight.
                                 defer_msg( msg, args->deferral_file );
                                 zmq_msg_close( msg );
+                                INC_COUNTER(messages_deferred_to_disk);
                         }
 
                         free( msg );
@@ -577,6 +606,7 @@ static void *poller( void *args_p ) {
                                         zmq_msg_close( &i->msg );
                                         *i = *water_mark;
                                         water_mark--;
+                                        INC_COUNTER(acks_received_from_upstream);
                                 }
                         }
 
@@ -599,11 +629,36 @@ static void *poller( void *args_p ) {
         zmq_close( args->self_sock );
         zmq_close( args->upstream_sock );
 
+        // TODO: Assert that the deferral file is empty
         marquise_deferral_file_close( args->deferral_file );
         marquise_deferral_file_free( args->deferral_file );
 
         free( args );
         free( in_flight );
+
+#ifdef LIBMARQUISE_PROFILING
+        debug_log("libmarquise poll thread profiling:\n"
+                "        messages_in = %lu\n"
+                "        messages_in_special = %lu\n"
+                "        acks_sent = %lu\n"
+                "        messages_sent_upstream = %lu\n"
+                "        acks_received_from_upstream = %lu\n"
+                "        messages_timed_out = %lu\n"
+                "        messages_deferred_to_disk = %lu\n"
+                "        messages_deferred_to_memory = %lu\n"
+                "        messages_read_from_disk = %lu\n"
+                "        poll_loops = %lu\n",
+	messages_in,
+	messages_in_special,
+	acks_sent,
+	messages_sent_upstream,
+	acks_received_from_upstream,
+	messages_timed_out,
+	messages_deferred_to_disk,
+	messages_deferred_to_memory,
+	messages_read_from_disk,
+	poll_loops);
+#endif
 
         return NULL;
 }
