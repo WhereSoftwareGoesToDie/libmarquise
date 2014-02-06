@@ -191,7 +191,12 @@ static void *collator( void *args_p ) {
                 { args->client_sock
                 , 0
                 , ZMQ_POLLIN
-                , 0 }
+                , 0 },
+                { args->ipc_event_sock
+                , 0
+                , ZMQ_POLLIN
+                , 0 },
+
         };
 
         while( 1 ) {
@@ -199,13 +204,40 @@ static void *collator( void *args_p ) {
                 int ms_elapsed = g_timer_elapsed( timer, &ms ) * 1000;
                 int time_left = poll_ms - ms_elapsed;
 
-                if( zmq_poll( items, 1,  time_left < 0 ? 0 : time_left ) == -1 ) {
+                if( zmq_poll( items, 2,  time_left < 0 ? 0 : time_left ) == -1 ) {
                                 syslog( LOG_ERR
                                 , "libmarquise error: zmq_poll "
                                         "got unknown error code: %d"
                                 , errno );
                                 break;
                 }
+
+                if ( items [1].revents & ZMQ_POLLIN ) {
+			// ipc message received
+			//
+			zmq_msg_t ipc_msg;
+			zmq_msg_init(&ipc_msg);
+			int rx = zmq_msg_recv( &ipc_msg, args->ipc_event_sock, 0 );
+
+                        fail_if( rx == -1
+                               , continue;
+                               , "queue_loop: zmq_msg_recv: '%s'"
+                               , strerror( errno ) );
+
+                        // The client call to marquise_consumer_shutdown() will
+                        // send this IPC message that instructs us to flush
+                        // outstanding messages and shutdown. We later pass
+                        // this on to the poller thread (after the break).
+                        if(  rx == 3
+                          && !strncmp( zmq_msg_data( &ipc_msg ), "DIE", 3 ) ) {
+                                zmq_msg_close( &ipc_msg );
+                                break;
+                        }
+			debug_log("libmarquise: poller received unknown IPC"
+	                          "control message");
+                        zmq_msg_close( &ipc_msg );
+                        continue;
+		}
 
                 if ( items [0].revents & ZMQ_POLLIN ) {
                         zmq_msg_t *msg = malloc( sizeof( zmq_msg_t ) );
@@ -218,16 +250,6 @@ static void *collator( void *args_p ) {
                                , "queue_loop: zmq_msg_recv: '%s'"
                                , strerror( errno ) );
 
-                        // The client call to marquise_consumer_shutdown() will
-                        // send this special message that instructs us to flush
-                        // outstanding messages and shutdown. We later pass
-                        // this on to the poller thread (after the break).
-                        if(  rx == 3
-                          && !strncmp( zmq_msg_data( msg ), "DIE", 3 ) ) {
-                                zmq_msg_close( msg );
-                                free( msg );
-                                break;
-                        }
 
                         water_mark++;
                         rxed += rx;
@@ -272,7 +294,7 @@ static void *collator( void *args_p ) {
         } while( ret == -1  && errno == EINTR );
 
         fail_if( ret == -1
-               , return NULL;
+               ,
                , "zmq_send: %s", strerror( errno ) );
 
         // Wait for the ack from the poller thread
@@ -291,9 +313,11 @@ static void *collator( void *args_p ) {
 
         // All done, we can send an ack to let marquise_consumer_shutdown
         // return
-        zmq_send( args->client_sock, "", 0, 0 );
+        if ( zmq_send( args->ipc_event_sock, "", 0, 0 ) < 0 )
+		perror("zmq_send acking in marquise_consumer_shutdown\n");
         zmq_close( args->client_sock );
         zmq_close( args->poller_sock );
+        zmq_close( args->ipc_event_sock );
 
         free( args );
         g_timer_destroy( timer );
@@ -600,6 +624,12 @@ static void *poller( void *args_p ) {
                , "marquise_consumer_new: " __VA_ARGS__ ); \
 
 marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
+	consumer_state *consumer;
+       	consumer = malloc(sizeof(consumer_state));
+	fail_if( !consumer
+		, perror("malloc");
+		, "malloc" );
+
         // One context per consumer, this is passed back to the caller as an
         // opaque pointer.
         void *context = zmq_ctx_new();
@@ -621,6 +651,32 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , "zmq_bind: '%s'"
                    , strerror( errno ) );
 
+	// and a client facing out-of-band IPC socket for the rare
+	// synchronous messages (only 'DIE' at this point)
+        void *collator_ipc_req_socket = zmq_socket( context, ZMQ_REQ );
+        void *collator_ipc_rep_socket = zmq_socket( context, ZMQ_REP );
+        ctx_fail_if( !collator_ipc_req_socket
+                   ,
+                   , "zmq_socket: '%s'"
+                   , strerror( errno ) );
+        ctx_fail_if( !collator_ipc_rep_socket
+                   ,
+                   , "zmq_socket: '%s'"
+                   , strerror( errno ) );
+
+        ctx_fail_if( zmq_bind( collator_ipc_rep_socket, "inproc://collator_ipc" )
+                   , zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
+                   , "zmq_bind: '%s'"
+                   , strerror( errno ) );
+        ctx_fail_if( zmq_connect( collator_ipc_req_socket, "inproc://collator_ipc" )
+                   , zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
+                   , "zmq_connect: '%s'"
+                   , strerror( errno ) );
+
         // And then the internal collater to poller sockets, note that the bind
         // must happen before the connect, this is a "feature" of inproc
         // sockets.
@@ -633,6 +689,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         ctx_fail_if( zmq_bind( poller_rep_socket, "inproc://poller" )
                    , zmq_close( poller_rep_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
                    , "zmq_bind: '%s'"
                    , strerror( errno ) );
 
@@ -640,6 +698,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         ctx_fail_if( !poller_req_socket
                    , zmq_close( poller_rep_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
                    , "zmq_socket: '%s'"
                    , strerror( errno ) );
 
@@ -647,6 +707,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , zmq_close( poller_req_socket );
                      zmq_close( poller_rep_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
                    , "zmq_connect: '%s'"
                    , strerror( errno ) );
 
@@ -656,6 +718,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , zmq_close( poller_req_socket );
                      zmq_close( poller_rep_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
                    , "zmq_socket: '%s'"
                    , strerror( errno ) );
 
@@ -664,6 +728,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                      zmq_close( poller_rep_socket );
                      zmq_close( poller_req_self_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
                    , "zmq_connect: '%s'"
                    , strerror( errno ) );
 
@@ -673,6 +739,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , zmq_close( poller_rep_socket );
                      zmq_close( poller_req_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
                      zmq_close( poller_req_self_socket );
                   , "zmq_socket: '%s'"
                   , strerror( errno ) );
@@ -681,6 +749,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , zmq_close( poller_rep_socket );
                      zmq_close( poller_req_socket );
                      zmq_close( collator_rep_socket );
+                     zmq_close( collator_ipc_req_socket );
+                     zmq_close( collator_ipc_rep_socket );
                      zmq_close( poller_req_self_socket );
                      zmq_close( upstream_dealer_socket );
                    , "zmq_connect: '%s'"
@@ -704,6 +774,8 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                           zmq_close( poller_rep_socket );      \
                           zmq_close( poller_req_self_socket ); \
                           zmq_close( collator_rep_socket );    \
+                          zmq_close( collator_ipc_req_socket );    \
+                          zmq_close( collator_ipc_rep_socket );    \
                           zmq_close( upstream_dealer_socket ); }
 
 
@@ -711,9 +783,9 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         collator_args *ca = malloc( sizeof( collator_args ) );
         ctx_fail_if( !ca, CLEANUP, "malloc" );
 
-
         ca->client_sock = collator_rep_socket;
         ca->poller_sock = poller_req_socket;
+	ca->ipc_event_sock = collator_ipc_rep_socket;
         ca->poll_period = poll_period;
 
         pthread_t collator_pthread;
@@ -758,18 +830,20 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , CLEANUP
                    , "pthread_detach returned: '%d'", err );
 
-        // Ready to go as far as we're concerned, return the context.
-        return context;
+        // Ready to go as far as we're concerned
+	// save the context and ipc sockets and return the consumer
+	// state
+	consumer->context = context;
+	consumer->collator_ipc_event_req_sock = collator_ipc_req_socket;
+        return (marquise_consumer) consumer;
 }
 
 void marquise_consumer_shutdown( marquise_consumer consumer ) {
-        void *connection = marquise_connect( consumer );
-        if( !connection )
-                return;
+	consumer_state *cs = (consumer_state *) consumer;
 
         int tx;
         do {
-                tx = zmq_send( connection, "DIE", 3, 0 );
+                tx = zmq_send( cs->collator_ipc_event_req_sock, "DIE", 3, 0 );
         } while( tx == -1 && errno == EINTR );
         fail_if( tx == -1, return;, "zmq_send (DIE)")
 
@@ -779,16 +853,16 @@ void marquise_consumer_shutdown( marquise_consumer consumer ) {
 
         int rx;
         do {
-                rx = zmq_recvmsg( connection, &ack, 0 );
+                rx = zmq_recvmsg( cs->collator_ipc_event_req_sock, &ack, 0 );
         } while( rx == -1 && errno == EINTR );
         fail_if( rx == -1
                , return;
                , "zmq_recvmsg: %s", strerror( errno ) );
 
         zmq_msg_close( &ack );
-        assert( zmq_close( connection ) == 0);
-
-        zmq_ctx_destroy( consumer );
+        zmq_close( cs->collator_ipc_event_req_sock );
+        zmq_ctx_destroy( cs->context );
+	free(cs);
 }
 
 #define conn_fail_if( assertion, ... ) \
@@ -797,7 +871,9 @@ void marquise_consumer_shutdown( marquise_consumer consumer ) {
                , __VA_ARGS__ );                        \
 
 marquise_connection marquise_connect( marquise_consumer consumer ) {
-        void *connection = zmq_socket( consumer, ZMQ_REQ );
+	consumer_state *cs = (consumer_state *) consumer;
+
+        void *connection = zmq_socket( cs->context, ZMQ_REQ );
         conn_fail_if( !connection
                     , "marquise_connect: zmq_socket: '%s'"
                     , strerror( errno ) );

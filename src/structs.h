@@ -18,8 +18,14 @@ typedef struct {
 typedef struct {
         void *client_sock;
         void *poller_sock;
+        void *ipc_event_sock;
         double poll_period;
 } collator_args;
+
+typedef struct {
+	void *context;
+	void *collator_ipc_event_req_sock;
+} consumer_state;
 
 typedef struct {
         void *upstream_sock;
@@ -29,24 +35,12 @@ typedef struct {
 } poller_args;
 
 typedef struct {
-        char *broker;
-        void *context;
-        void *queue_connection;
-        void *upstream_context;
-        void *upstream_connection;
-        deferral_file *deferral_file;
-        double poll_period;
-        pthread_mutex_t queue_mutex;
-        pthread_mutex_t flush_mutex;
-        GSList *queue;
-} queue_args;
-
-typedef struct {
         uint8_t *data;
         size_t length;
 } data_burst;
 
 typedef struct {
         uint8_t *data;
-        size_t length;} frame;
+        size_t length;
+} frame;
 
