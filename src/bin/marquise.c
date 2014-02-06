@@ -52,6 +52,6 @@ int main( int argc, char **argv ) {
         printf( "Sent %d frames, waiting for shutdown.\n", n );
         marquise_close( connection );
         marquise_consumer_shutdown( consumer );
-        printf( "All done.\n", n );
+        printf( "All done.\n" );
         return 0;
 }
