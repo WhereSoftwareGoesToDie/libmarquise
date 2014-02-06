@@ -30,7 +30,6 @@ typedef struct {
 typedef struct {
         void *upstream_sock;
         void *collator_sock;
-        void *self_sock;
         deferral_file *deferral_file;
 } poller_args;
 

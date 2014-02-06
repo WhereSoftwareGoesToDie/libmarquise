@@ -636,7 +636,6 @@ static void *poller( void *args_p ) {
         // Send the ack to notify that we have shutdown.
         zmq_send( args->collator_sock, "", 0, 0 );
         zmq_close( args->collator_sock );
-        zmq_close( args->self_sock );
         zmq_close( args->upstream_sock );
 
         // TODO: Assert that the deferral file is empty
@@ -769,27 +768,6 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                    , "zmq_connect: '%s'"
                    , strerror( errno ) );
 
-        // The poller wants to be able to talk to itself.
-        void *poller_req_self_socket = zmq_socket( context, ZMQ_REQ );
-        ctx_fail_if( !poller_req_self_socket
-                   , zmq_close( poller_req_socket );
-                     zmq_close( poller_rep_socket );
-                     zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_req_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                   , "zmq_socket: '%s'"
-                   , strerror( errno ) );
-
-        ctx_fail_if( zmq_connect( poller_req_self_socket, "inproc://poller" )
-                   , zmq_close( poller_req_socket );
-                     zmq_close( poller_rep_socket );
-                     zmq_close( poller_req_self_socket );
-                     zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_req_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                   , "zmq_connect: '%s'"
-                   , strerror( errno ) );
-
         // Finally, the upstream socket (connecting to the broker)
         void *upstream_dealer_socket = zmq_socket( context, ZMQ_DEALER );
         ctx_fail_if( !upstream_dealer_socket
@@ -798,7 +776,6 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                      zmq_close( collator_pull_socket );
                      zmq_close( collator_ipc_req_socket );
                      zmq_close( collator_ipc_rep_socket );
-                     zmq_close( poller_req_self_socket );
                   , "zmq_socket: '%s'"
                   , strerror( errno ) );
 
@@ -808,7 +785,6 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                      zmq_close( collator_pull_socket );
                      zmq_close( collator_ipc_req_socket );
                      zmq_close( collator_ipc_rep_socket );
-                     zmq_close( poller_req_self_socket );
                      zmq_close( upstream_dealer_socket );
                    , "zmq_connect: '%s'"
                    , strerror( errno ) );
@@ -829,7 +805,6 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         // We will want to wrap up soon as this state is becoming messy:
         #define CLEANUP { zmq_close( poller_req_socket );      \
                           zmq_close( poller_rep_socket );      \
-                          zmq_close( poller_req_self_socket ); \
                           zmq_close( collator_pull_socket );    \
                           zmq_close( collator_ipc_req_socket );    \
                           zmq_close( collator_ipc_rep_socket );    \
@@ -865,7 +840,6 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
 
         pa->upstream_sock = upstream_dealer_socket;
         pa->collator_sock = poller_rep_socket;
-        pa->self_sock     = poller_req_self_socket;
 
         pa->deferral_file = marquise_deferral_file_new();
         ctx_fail_if( ! pa->deferral_file
