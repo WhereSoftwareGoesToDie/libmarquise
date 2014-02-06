@@ -188,6 +188,7 @@ static void *collator( void *args_p ) {
         GSList *message_list = NULL;
         gulong ms; // Useless, microseconds for gtimer_elapsed
 
+        int shutdown                       = 0;
         unsigned int water_mark            = 0;
         unsigned int rxed                  = 0;
 
@@ -211,6 +212,7 @@ static void *collator( void *args_p ) {
                 // Calculate the poll period till the next timer expiry.
                 int ms_elapsed = g_timer_elapsed( timer, &ms ) * 1000;
                 int time_left = poll_ms - ms_elapsed;
+		time_left = shutdown ? 0 : time_left;
 
                 if( zmq_poll( items, 2,  time_left < 0 ? 0 : time_left ) == -1 ) {
                                 syslog( LOG_ERR
@@ -220,7 +222,7 @@ static void *collator( void *args_p ) {
                                 break;
                 }
 
-                if ( items [1].revents & ZMQ_POLLIN ) {
+                if ( !shutdown && items [1].revents & ZMQ_POLLIN ) {
 			// ipc message received
 			//
 			zmq_msg_t ipc_msg;
@@ -238,8 +240,11 @@ static void *collator( void *args_p ) {
                         // this on to the poller thread (after the break).
                         if(  rx == 3
                           && !strncmp( zmq_msg_data( &ipc_msg ), "DIE", 3 ) ) {
+				shutdown = 1;
+				debug_log("libmarquise: poller received shutdown. processing "
+						"outstanding queue\n");
                                 zmq_msg_close( &ipc_msg );
-                                break;
+				continue;
                         }
 			debug_log("libmarquise: poller received unknown IPC"
 	                          "control message");
@@ -266,6 +271,11 @@ static void *collator( void *args_p ) {
                         // ordering.
                         message_list = g_slist_prepend( message_list, msg );
                 }
+		else if ( shutdown ) {
+			// No outstanding messages from the client in queue
+			// while shutting down
+			break;
+		}
 
                 // Whenever the timer elapses or the high water mark is
                 // reached, we collate our message list and then  send it to
