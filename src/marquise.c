@@ -672,14 +672,10 @@ static void *poller( void *args_p ) {
         return NULL;
 }
 
-#define ctx_fail_if( assertion, action, ... )             \
-        fail_if( assertion                                \
-               , { action };                              \
-                 zmq_ctx_destroy( context );              \
-                 return NULL;                             \
-               , "marquise_consumer_new: " __VA_ARGS__ ); \
-
 marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
+        fail_if( poll_period <= 0
+               , return NULL;
+               , "poll_period cannot be <= 0" );
         // One context per consumer, this is passed back to the caller as an
         // opaque pointer.
         void *context = zmq_ctx_new();
@@ -687,84 +683,38 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                , return NULL;
                , "zmq_ctx_new failed, this is very confusing." );
 
-        ctx_fail_if( poll_period <= 0, , "poll_period cannot be <= 0" );
+#define NEW_SOCKET( var, type )\
+        void *var = zmq_socket(context, type); \
+        fail_if( var == NULL, \
+                 zmq_ctx_destroy( context ); \
+                 return NULL; \
+               , "marquise_consumer_new: " #var "= zmq_socket(ctx, " #type ")" \
+        );
 
-        // Set up the client facing REP socket.
-        void *collator_pull_socket = zmq_socket( context, ZMQ_PULL );
-        ctx_fail_if( !collator_pull_socket
-                   ,
-                   , "zmq_socket: '%s'"
-                   , strerror( errno ) );
+#define CLEANUP_SOCKETS { zmq_close( poller_req_socket );      \
+                          zmq_close( poller_rep_socket );      \
+                          zmq_close( collator_pull_socket );    \
+                          zmq_close( collator_ipc_rep_socket );    \
+                          zmq_close( upstream_dealer_socket ); }
 
-        ctx_fail_if( zmq_bind( collator_pull_socket, "inproc://collator" )
-                   , zmq_close( collator_pull_socket );
-                   , "zmq_bind: '%s'"
-                   , strerror( errno ) );
+#define SOCKET_ACTION( action, socket, argument ) \
+        fail_if( action( socket, argument ) \
+               , CLEANUP_SOCKETS; return NULL; \
+               , "marquise_consumer_new: " #action "( " #socket "," #argument "): %s" \
+               , strerror( errno ) );
 
-        // and a client facing out-of-band IPC socket for the rare
-        // synchronous messages (only 'DIE' at this point)
-        void *collator_ipc_rep_socket = zmq_socket( context, ZMQ_REP );
-        ctx_fail_if( !collator_ipc_rep_socket
-                   ,
-                   , "zmq_socket: '%s'"
-                   , strerror( errno ) );
 
-        ctx_fail_if( zmq_bind( collator_ipc_rep_socket, "inproc://collator_ipc" )
-                   , zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                   , "zmq_bind: '%s'"
-                   , strerror( errno ) );
+        NEW_SOCKET( collator_pull_socket    , ZMQ_PULL   );
+        NEW_SOCKET( poller_rep_socket       , ZMQ_REP    );
+        NEW_SOCKET( poller_req_socket       , ZMQ_REQ    );
+        NEW_SOCKET( upstream_dealer_socket  , ZMQ_DEALER );
+        NEW_SOCKET( collator_ipc_rep_socket , ZMQ_REP    );
 
-        // And then the internal collater to poller sockets, note that the bind
-        // must happen before the connect, this is a "feature" of inproc
-        // sockets.
-        void *poller_rep_socket = zmq_socket( context, ZMQ_REP );
-        ctx_fail_if( !poller_rep_socket
-                   , zmq_close( collator_pull_socket );
-                   , "zmq_socket: '%s'"
-                   , strerror( errno ) );
-
-        ctx_fail_if( zmq_bind( poller_rep_socket, "inproc://poller" )
-                   , zmq_close( poller_rep_socket );
-                     zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                   , "zmq_bind: '%s'"
-                   , strerror( errno ) );
-
-        void *poller_req_socket = zmq_socket( context, ZMQ_REQ );
-        ctx_fail_if( !poller_req_socket
-                   , zmq_close( poller_rep_socket );
-                     zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                   , "zmq_socket: '%s'"
-                   , strerror( errno ) );
-
-        ctx_fail_if( zmq_connect( poller_req_socket, "inproc://poller" )
-                   , zmq_close( poller_req_socket );
-                     zmq_close( poller_rep_socket );
-                     zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                   , "zmq_connect: '%s'"
-                   , strerror( errno ) );
-
-        // Finally, the upstream socket (connecting to the broker)
-        void *upstream_dealer_socket = zmq_socket( context, ZMQ_DEALER );
-        ctx_fail_if( !upstream_dealer_socket
-                   , zmq_close( poller_rep_socket );
-                     zmq_close( poller_req_socket );
-                     zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                  , "zmq_socket: '%s'"
-                  , strerror( errno ) );
-
-        ctx_fail_if( zmq_connect( upstream_dealer_socket, broker )
-                   , zmq_close( poller_rep_socket );
-                     zmq_close( poller_req_socket );
-                     zmq_close( collator_pull_socket );
-                     zmq_close( collator_ipc_rep_socket );
-                     zmq_close( upstream_dealer_socket );
-                   , "zmq_connect: '%s'"
-                   , strerror( errno ) );
+        SOCKET_ACTION( zmq_bind    , collator_pull_socket    , "inproc://collator" );
+        SOCKET_ACTION( zmq_bind    , collator_ipc_rep_socket , "inproc://collator_ipc" );
+        SOCKET_ACTION( zmq_bind    , poller_rep_socket       , "inproc://poller" );
+        SOCKET_ACTION( zmq_connect , poller_req_socket       , "inproc://poller" );
+        SOCKET_ACTION( zmq_connect , upstream_dealer_socket  , broker );
 
         // All of our setup is done, most things that could have failed would
         // have by now.
@@ -779,17 +729,10 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
         // The poller communicates with the broker, sending bursts recieved
         // from the collator upstream.
 
-        // We will want to wrap up soon as this state is becoming messy:
-        #define CLEANUP { zmq_close( poller_req_socket );      \
-                          zmq_close( poller_rep_socket );      \
-                          zmq_close( collator_pull_socket );    \
-                          zmq_close( collator_ipc_rep_socket );    \
-                          zmq_close( upstream_dealer_socket ); }
-
 
         // Set up the arguments for the collator thread and start that.
         collator_args *ca = malloc( sizeof( collator_args ) );
-        ctx_fail_if( !ca, CLEANUP, "malloc" );
+        fail_if( !ca, CLEANUP_SOCKETS; return NULL; , "malloc" );
 
         ca->client_sock = collator_pull_socket;
         ca->poller_sock = poller_req_socket;
@@ -801,41 +744,41 @@ marquise_consumer marquise_consumer_new( char *broker, double poll_period ) {
                                 , NULL
                                 , collator
                                 , ca );
-        ctx_fail_if( err
-                   , CLEANUP
-                   , "pthread_create returned: '%d'", err );
+        fail_if( err
+               , CLEANUP_SOCKETS; return NULL;
+               , "pthread_create returned: '%d'", err );
 
         err = pthread_detach( collator_pthread );
-        ctx_fail_if( err
-                   , CLEANUP
-                   , "pthread_detach returned: '%d'", err );
+        fail_if( err
+               , CLEANUP_SOCKETS; return NULL;
+               , "pthread_detach returned: '%d'", err );
 
         // The collator is running, now we start the poller thread.
         poller_args *pa = malloc( sizeof( poller_args ) );
-        ctx_fail_if( !pa, CLEANUP, "malloc" );
+        fail_if( !pa, CLEANUP_SOCKETS; return NULL;, "malloc" );
 
         pa->upstream_sock = upstream_dealer_socket;
         pa->collator_sock = poller_rep_socket;
 
         pa->deferral_file = marquise_deferral_file_new();
-        ctx_fail_if( ! pa->deferral_file
-                   , CLEANUP
-                   , "mkstemp: '%s'"
-                   , strerror( errno ) );
+        fail_if( ! pa->deferral_file
+               , CLEANUP_SOCKETS; return NULL;
+               , "mkstemp: '%s'"
+               , strerror( errno ) );
 
         pthread_t poller_pthread;
         err = pthread_create( &poller_pthread
                                 , NULL
                                 , poller
                                 , pa );
-        ctx_fail_if( err
-                   , CLEANUP
-                   , "pthread_create returned: '%d'", err );
+        fail_if( err
+               , CLEANUP_SOCKETS; return NULL;
+               , "pthread_create returned: '%d'", err );
 
         err = pthread_detach( poller_pthread );
-        ctx_fail_if( err
-                   , CLEANUP
-                   , "pthread_detach returned: '%d'", err );
+        fail_if( err
+               , CLEANUP_SOCKETS; return NULL;
+               , "pthread_detach returned: '%d'", err );
 
         // Ready to go as far as we're concerned
         return context;

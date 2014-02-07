@@ -23,11 +23,6 @@ typedef struct {
 } collator_args;
 
 typedef struct {
-	void *context;
-	void *collator_ipc_event_req_sock;
-} consumer_state;
-
-typedef struct {
         void *upstream_sock;
         void *collator_sock;
         deferral_file *deferral_file;
