@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <glib.h>
+#include <zmq.h>
 
 typedef struct {
         char *path;
@@ -9,17 +10,28 @@ typedef struct {
 } deferral_file;
 
 typedef struct {
-        char *broker;
-        void *context;
-        void *queue_connection;
-        void *upstream_context;
-        void *upstream_connection;
-        deferral_file *deferral_file;
+        zmq_msg_t msg;
+        uint64_t expiry;
+        uint16_t msg_id;
+} message_in_flight;
+
+typedef struct {
+        void *client_sock;
+        void *poller_sock;
+        void *ipc_event_sock;
         double poll_period;
-        pthread_mutex_t queue_mutex;
-        pthread_mutex_t flush_mutex;
-        GSList *queue;
-} queue_args;
+} collator_args;
+
+typedef struct {
+	void *context;
+	void *collator_ipc_event_req_sock;
+} consumer_state;
+
+typedef struct {
+        void *upstream_sock;
+        void *collator_sock;
+        deferral_file *deferral_file;
+} poller_args;
 
 typedef struct {
         uint8_t *data;
