@@ -11,7 +11,7 @@ char get_envvar_int(const char *name, int *v) {
         }
         errno = 0;
         *v = strtol(var, NULL, 10);
-        if (errno) {
+        if (errno != 0 || *v == 0) {
                 return -1;
         }
         return 1;
