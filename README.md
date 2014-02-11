@@ -18,6 +18,23 @@ building
 	make
 	sudo make install
 
+configuration
+=============
+
+Some libmarquise behaviours are informed by environment variables. The
+following are required, and writes will fail with EINVAL if they are not
+set:
+
+ - LIBMARQUISE_ORIGIN (origin value for vaultaire)
+
+The following are optional, and modify default behaviours:
+
+ - LIBMARQUISE_DEBUG (enable debug output)
+ - LIBMARQUISE_COLLATOR_MAX_MESSAGES (the number of messages that must
+   be written in order to force collation and sending; consequently,
+   this is the maximum number of DataFrames which will be encoded in the
+   DataBurst that libmarquise sends).
+
 bindings
 ========
 

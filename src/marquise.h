@@ -4,7 +4,10 @@
 typedef void *marquise_consumer;
 typedef void *marquise_connection;
 
+// This can be overriden by the LIBMARQUISE_COLLATOR_MAX_MESSAGES
+// environment variable.
 #define COLLATOR_MAX_MESSAGES 4096
+
 #define COLLATOR_MAX_RX 131072 // 128 KB
 
 // This can't be more than 65535 without changing the msg_id data type of the

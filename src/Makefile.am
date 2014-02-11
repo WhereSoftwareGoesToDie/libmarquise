@@ -6,12 +6,13 @@ libmarquise_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:0:0
 libmarquise_la_SOURCES = \
 	protobuf/DataFrame.pb-c.c \
 	protobuf/DataBurst.pb-c.c \
+	envvar.c \
 	marquise.c \
 	frame.c \
 	defer.c \
 	varint.c \
 	lz4/lz4.c \
-	lz4/lz4hc.c
+	lz4/lz4hc.c 
 include_HEADERS = marquise.h
 dist_noinst_HEADERS = defer.h \
 		      macros.h \
@@ -21,7 +22,8 @@ dist_noinst_HEADERS = defer.h \
 		      protobuf/DataBurst.pb-c.h \
 		      protobuf/DataFrame.pb-c.h \
 		      frame.h \
-		      varint.h
+		      varint.h \
+	              envvar.h
 
 dist_noinst_DATA = lz4/*.c lz4/*.h
 

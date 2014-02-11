@@ -4,6 +4,7 @@
 #include "macros.h"
 #include "../config.h"
 #include "defer.h"
+#include "envvar.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -210,6 +211,7 @@ static void *collator( void *args_p ) {
                 // Calculate the poll period till the next timer expiry.
                 int ms_elapsed = g_timer_elapsed( timer, &ms ) * 1000;
                 int time_left = poll_ms - ms_elapsed;
+                int max_messages = get_collator_max_messages();
                 time_left = shutdown ? 0 : time_left;
 
                 if( zmq_poll( items, 2,  time_left < 0 ? 0 : time_left ) == -1 ) {
@@ -279,7 +281,7 @@ static void *collator( void *args_p ) {
                 // reached, we collate our message list and then  send it to
                 // the poller thread.
                 if(  g_timer_elapsed( timer, &ms ) > args->poll_period
-                  || water_mark >= COLLATOR_MAX_MESSAGES
+                  || water_mark >= max_messages
                   || rxed >= COLLATOR_MAX_RX ) {
                         send_message_list( message_list, args->poller_sock  );
 
