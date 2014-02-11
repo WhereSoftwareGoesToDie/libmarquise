@@ -180,8 +180,6 @@ static void send_message_list( GSList *message_list, void *destination_sock ) {
 // through to the poller thread whenever a high water mark is reached or a
 // timeout has triggered.
 
-#define COLLATOR_MAX_MESSAGES 4096
-#define COLLATOR_MAX_RX 131072 // 128 KB
 static void *collator( void *args_p ) {
         collator_args *args = args_p;
         GTimer *timer = g_timer_new();
@@ -364,16 +362,6 @@ static inline zmq_msg_t *retrieve_msg( deferral_file *df ) {
         free_databurst( burst );
         return msg;
 }
-
-// This can't be more than 65535 without changing the msg_id data type of the
-// message_in_flight struct.
-#define POLLER_HIGH_WATER_MARK 128
-
-// Microseconds till a message expires
-#define POLLER_EXPIRY 60000000000 // 60 seconds
-
-// How often to check disk for a deferred message
-#define POLLER_DEFER_PERIOD 1000000000 // 1 second
 
 static void *poller( void *args_p ) {
         uint64_t defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD;

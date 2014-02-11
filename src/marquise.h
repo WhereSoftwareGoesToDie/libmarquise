@@ -4,6 +4,19 @@
 typedef void *marquise_consumer;
 typedef void *marquise_connection;
 
+#define COLLATOR_MAX_MESSAGES 4096
+#define COLLATOR_MAX_RX 131072 // 128 KB
+
+// This can't be more than 65535 without changing the msg_id data type of the
+// message_in_flight struct.
+#define POLLER_HIGH_WATER_MARK 128
+
+// Microseconds till a message expires
+#define POLLER_EXPIRY 60000000000 // 60 seconds
+
+// How often to check disk for a deferred message
+#define POLLER_DEFER_PERIOD 1000000000 // 1 second
+
 // Attempt to start a consumer with the system's local configuration. Returns
 // NULL on failure and sets errno.
 //
