@@ -42,7 +42,8 @@ check_PROGRAMS=\
 	marquise_consumer_new_test \
 	marquise_connect_test \
 	varint_test \
-	full_stack_test
+	full_stack_test \
+	envvar_test
 
 defer_file_test_SOURCES = tests/defer_file_test.c 
 defer_file_test_LDADD = libmarquise.la
@@ -55,6 +56,9 @@ marquise_connect_test_LDADD = libmarquise.la
 
 varint_test_SOURCES = tests/varint_test.c
 varint_test_LDADD = libmarquise.la
+
+envvar_test_SOURCES = tests/envvar_test.c
+envvar_test_LDADD = libmarquise.la
 
 full_stack_test_SOURCES = tests/full_stack_test.c
 full_stack_test_LDADD = libmarquise.la
