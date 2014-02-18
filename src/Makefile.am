@@ -63,4 +63,8 @@ envvar_test_LDADD = libmarquise.la
 full_stack_test_SOURCES = tests/full_stack_test.c
 full_stack_test_LDADD = libmarquise.la
 
+indent: *.c *.h bin/*.c tests/*.c
+	indent -linux $^
+	rm $(foreach input,$^,$(input)~)
+
 test: check

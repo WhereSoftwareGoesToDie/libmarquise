@@ -8,101 +8,94 @@
 #include "../macros.h"
 
 typedef struct {
-        deferral_file *df;
+	deferral_file *df;
 } fixture;
 
-void setup( fixture *f, gconstpointer td ){
-        f->df = marquise_deferral_file_new();
-}
-void teardown( fixture *f, gconstpointer td ){
-        marquise_deferral_file_close(f->df);
-        marquise_deferral_file_free( f->df );
+void setup(fixture * f, gconstpointer td)
+{
+	f->df = marquise_deferral_file_new();
 }
 
-void defer_then_read( fixture *f, gconstpointer td ){
-        // two test bursts, we expect it to behave as a LIFO stack
-        data_burst *first = malloc( sizeof( data_burst ) );
-        first->data = malloc( 6 );
-        memcpy(first->data,"first", 6);
-        first->length = 6;
-
-        data_burst *last = malloc( sizeof( data_burst ) );
-        last->data = malloc( 5 );
-        memcpy(first->data, "last", 5);
-        last->length = 5;
-
-        marquise_defer_to_file( f->df, first );
-        marquise_defer_to_file( f->df, last );
-
-        data_burst *first_retrieved = marquise_retrieve_from_file( f->df );
-        g_assert_cmpuint( last->length, ==, first_retrieved->length);
-        g_assert_cmpstr( (char *)last->data, ==, (char *)first_retrieved->data);
-
-
-        data_burst *last_retrieved = marquise_retrieve_from_file( f->df );
-        g_assert_cmpuint( first->length, ==, last_retrieved->length);
-        g_assert_cmpstr( (char *)first->data, ==, (char *)last_retrieved->data);
-
-        data_burst *nonexistant = marquise_retrieve_from_file( f->df );
-        g_assert ( !nonexistant );
-
-        free_databurst( first );
-        free_databurst( last );
-        free_databurst( first_retrieved );
-        free_databurst( last_retrieved );
+void teardown(fixture * f, gconstpointer td)
+{
+	marquise_deferral_file_close(f->df);
+	marquise_deferral_file_free(f->df);
 }
 
-void defer_unlink_then_read( fixture *f, gconstpointer td ){
-        data_burst *first = malloc( sizeof( data_burst ) );
-        first->data = malloc( 6 );
-        memcpy(first->data,"first", 6);
-        first->length = 6;
+void defer_then_read(fixture * f, gconstpointer td)
+{
+	// two test bursts, we expect it to behave as a LIFO stack
+	data_burst *first = malloc(sizeof(data_burst));
+	first->data = malloc(6);
+	memcpy(first->data, "first", 6);
+	first->length = 6;
 
-        marquise_defer_to_file( f->df, first );
-        unlink( f->df->path );
-        data_burst *nonexistant = marquise_retrieve_from_file( f->df );
-        g_assert ( !nonexistant );
+	data_burst *last = malloc(sizeof(data_burst));
+	last->data = malloc(5);
+	memcpy(first->data, "last", 5);
+	last->length = 5;
 
-        free_databurst( first );
+	marquise_defer_to_file(f->df, first);
+	marquise_defer_to_file(f->df, last);
+
+	data_burst *first_retrieved = marquise_retrieve_from_file(f->df);
+	g_assert_cmpuint(last->length, ==, first_retrieved->length);
+	g_assert_cmpstr((char *)last->data, ==, (char *)first_retrieved->data);
+
+	data_burst *last_retrieved = marquise_retrieve_from_file(f->df);
+	g_assert_cmpuint(first->length, ==, last_retrieved->length);
+	g_assert_cmpstr((char *)first->data, ==, (char *)last_retrieved->data);
+
+	data_burst *nonexistant = marquise_retrieve_from_file(f->df);
+	g_assert(!nonexistant);
+
+	free_databurst(first);
+	free_databurst(last);
+	free_databurst(first_retrieved);
+	free_databurst(last_retrieved);
 }
 
-void unlink_defer_then_read( fixture *f, gconstpointer td ){
-        data_burst *first = malloc( sizeof( data_burst ) );
-        first->data = malloc( 6 );
-        memcpy(first->data,"first", 6);
-        first->length = 6;
+void defer_unlink_then_read(fixture * f, gconstpointer td)
+{
+	data_burst *first = malloc(sizeof(data_burst));
+	first->data = malloc(6);
+	memcpy(first->data, "first", 6);
+	first->length = 6;
 
-        unlink( f->df->path );
-        marquise_defer_to_file( f->df, first );
-        data_burst *first_retrieved = marquise_retrieve_from_file( f->df );
-        g_assert( first_retrieved );
-        g_assert_cmpuint( first->length, ==, first_retrieved->length);
-        g_assert_cmpstr( (char *)first->data, ==, (char *)first_retrieved->data);
+	marquise_defer_to_file(f->df, first);
+	unlink(f->df->path);
+	data_burst *nonexistant = marquise_retrieve_from_file(f->df);
+	g_assert(!nonexistant);
 
-        free_databurst( first );
-        free_databurst( first_retrieved );
+	free_databurst(first);
 }
 
+void unlink_defer_then_read(fixture * f, gconstpointer td)
+{
+	data_burst *first = malloc(sizeof(data_burst));
+	first->data = malloc(6);
+	memcpy(first->data, "first", 6);
+	first->length = 6;
 
-int main( int argc, char **argv ){
-        g_test_init( &argc, &argv, NULL);
-        g_test_add( "/defer_file/defer_then"
-                  , fixture
-                  , NULL
-                  , setup
-                  , defer_then_read
-                  , teardown );
-        g_test_add( "/defer_file/defer_unlink_then_read"
-                  , fixture
-                  , NULL
-                  , setup
-                  , defer_unlink_then_read
-                  , teardown );
-        g_test_add( "/defer_file/unlink_defer_then_read"
-                  , fixture
-                  , NULL
-                  , setup
-                  , unlink_defer_then_read
-                  , teardown );
-        return g_test_run();
+	unlink(f->df->path);
+	marquise_defer_to_file(f->df, first);
+	data_burst *first_retrieved = marquise_retrieve_from_file(f->df);
+	g_assert(first_retrieved);
+	g_assert_cmpuint(first->length, ==, first_retrieved->length);
+	g_assert_cmpstr((char *)first->data, ==, (char *)first_retrieved->data);
+
+	free_databurst(first);
+	free_databurst(first_retrieved);
+}
+
+int main(int argc, char **argv)
+{
+	g_test_init(&argc, &argv, NULL);
+	g_test_add("/defer_file/defer_then", fixture, NULL, setup,
+		   defer_then_read, teardown);
+	g_test_add("/defer_file/defer_unlink_then_read", fixture, NULL, setup,
+		   defer_unlink_then_read, teardown);
+	g_test_add("/defer_file/unlink_defer_then_read", fixture, NULL, setup,
+		   unlink_defer_then_read, teardown);
+	return g_test_run();
 }

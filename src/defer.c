@@ -22,12 +22,14 @@
                , "marquise_defer_to_file recovered: %s", strerror( errno ) ); \
         } while( 0 )
 
-void marquise_defer_to_file( deferral_file *df, data_burst *burst ) {
-        struct stat sb;
-        recover_if( stat( df->path, &sb ) == -1 );
-        recover_if( fseek( df->stream, 0, SEEK_END ) ) ;
-        recover_if( ! fwrite( burst->data, burst->length, 1, df->stream ) );
-        recover_if( ! fwrite( &burst->length, sizeof( burst->length ), 1, df->stream ) );
+void marquise_defer_to_file(deferral_file * df, data_burst * burst)
+{
+	struct stat sb;
+	recover_if(stat(df->path, &sb) == -1);
+	recover_if(fseek(df->stream, 0, SEEK_END));
+	recover_if(!fwrite(burst->data, burst->length, 1, df->stream));
+	recover_if(!fwrite
+		   (&burst->length, sizeof(burst->length), 1, df->stream));
 }
 
 // Just log, return NULL and get on with your life.
@@ -37,87 +39,92 @@ void marquise_defer_to_file( deferral_file *df, data_burst *burst ) {
                , "marquise_retrieve_from_file failed: %s", strerror( errno ) ); \
         } while( 0 )
 
-data_burst *marquise_retrieve_from_file( deferral_file *df ) {
+data_burst *marquise_retrieve_from_file(deferral_file * df)
+{
 
-        // Broken file means no bursts left.
-        struct stat sb;
-        bail_if( stat( df->path, &sb ) == -1, );
+	// Broken file means no bursts left.
+	struct stat sb;
+	bail_if(stat(df->path, &sb) == -1,);
 
-        // Empty file means no bursts left.
-        bail_if( fseek( df->stream, 0, SEEK_END ), );
-        if( ftell( df->stream ) <= 0 )
-                return NULL;
+	// Empty file means no bursts left.
+	bail_if(fseek(df->stream, 0, SEEK_END),);
+	if (ftell(df->stream) <= 0)
+		return NULL;
 
-        size_t length;
-        // Grab the length of the burst from the end of the file
-        bail_if( fseek( df->stream
-                      , -( sizeof( size_t ) )
-                      , SEEK_END ), );
-        bail_if ( !fread( &length
-                        , sizeof( length )
-                        , 1
-                        , df->stream ),  );
+	size_t length;
+	// Grab the length of the burst from the end of the file
+	bail_if(fseek(df->stream, -(sizeof(size_t))
+		      , SEEK_END),);
+	bail_if(!fread(&length, sizeof(length)
+		       , 1, df->stream),);
 
-        // Now we seek back to the beginning of the burst.
-        bail_if( fseek( df->stream
-               , -( (long)length + sizeof( length ) )
-               , SEEK_END ), );
+	// Now we seek back to the beginning of the burst.
+	bail_if(fseek(df->stream, -((long)length + sizeof(length))
+		      , SEEK_END),);
 
-        // Which is where the file will need to be truncated.
-        long chop_at = ftell( df->stream );
-        bail_if( chop_at == -1, );
+	// Which is where the file will need to be truncated.
+	long chop_at = ftell(df->stream);
+	bail_if(chop_at == -1,);
 
-        data_burst *burst = malloc( sizeof( data_burst ) );
-        bail_if( !burst, );
+	data_burst *burst = malloc(sizeof(data_burst));
+	bail_if(!burst,);
 
-        burst->length = length;
-        burst->data = malloc( burst->length );
-        bail_if( !burst->data, free( burst ); );
+	burst->length = length;
+	burst->data = malloc(burst->length);
+	bail_if(!burst->data, free(burst);
+	    );
 
-        bail_if( !fread( burst->data, 1, burst->length, df->stream )
-               , free_databurst( burst); );
+	bail_if(!fread(burst->data, 1, burst->length, df->stream)
+		, free_databurst(burst);
+	    );
 
-        // And chop off the end of the file.
-        bail_if( ftruncate( fileno( df->stream ), chop_at )
-               , free_databurst( burst); );
+	// And chop off the end of the file.
+	bail_if(ftruncate(fileno(df->stream), chop_at)
+		, free_databurst(burst);
+	    );
 
-
-        return burst;
+	return burst;
 }
 
-deferral_file *marquise_deferral_file_new() {
-        deferral_file *df = malloc( sizeof( deferral_file ) );
-        if( !df ) return NULL;
+deferral_file *marquise_deferral_file_new()
+{
+	deferral_file *df = malloc(sizeof(deferral_file));
+	if (!df)
+		return NULL;
 
-        char *template = "/var/tmp/marquise_defer_file_XXXXXX";
-        char *file_path = malloc( strlen( template ) + 1 );
-        if( !file_path ) {
-                free( df );
-                return NULL;
-        }
+	char *template = "/var/tmp/marquise_defer_file_XXXXXX";
+	char *file_path = malloc(strlen(template) + 1);
+	if (!file_path) {
+		free(df);
+		return NULL;
+	}
 
-        strcpy( file_path, template );
-        int fd = mkstemp( file_path );
-        if ( fd == -1 ) goto fail_outro;
+	strcpy(file_path, template);
+	int fd = mkstemp(file_path);
+	if (fd == -1)
+		goto fail_outro;
 
-        df->path = file_path;
-        df->stream = fdopen( fd, "w+" );
-        if( !df->stream ) goto fail_outro;
+	df->path = file_path;
+	df->stream = fdopen(fd, "w+");
+	if (!df->stream)
+		goto fail_outro;
 
-        return df;
+	return df;
 
-        fail_outro:
-                free( df );
-                free( file_path );
-                return NULL;
+ fail_outro:
+	free(df);
+	free(file_path);
+	return NULL;
 }
 
-void marquise_deferral_file_close(deferral_file *df) {
-        fclose( df->stream );
-        unlink( df->path );
+void marquise_deferral_file_close(deferral_file * df)
+{
+	fclose(df->stream);
+	unlink(df->path);
 }
 
-void marquise_deferral_file_free( deferral_file *df ) {
-        free( df->path );
-        free( df );
+void marquise_deferral_file_free(deferral_file * df)
+{
+	free(df->path);
+	free(df);
 }
