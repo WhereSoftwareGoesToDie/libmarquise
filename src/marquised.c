@@ -23,15 +23,13 @@
 #include <endian.h>
 #include <assert.h>
 #include <zmq.h>
-#define DEBUG
+#include <pthread.h>
 
-#ifdef DEBUG
-#define DEBUG_PRINTF(...) fprintf(stderr, __VA_ARGS__);
-#else
-#define DEBUG_PRINTF(...)
-#endif
+#include "structs.h"
+#include "defer.h"
 
 #define DEFAULT_LISTEN_ADDRESS	"tcp://127.0.0.1:5560/"
+#define POLLER_IPC_ADDRESS	"inproc://poller"
 
 /* most inefficient hexdump on the planet */
 static void fhexdump(FILE *fp, uint8_t *buf, size_t bufsiz) {
@@ -39,10 +37,80 @@ static void fhexdump(FILE *fp, uint8_t *buf, size_t bufsiz) {
 		fprintf(fp,"%02x", *(buf++));
 }
 
+extern void *marquise_poller(void *argsp);
+
+/* Connect to the broker and start the libmarquise poller thread 
+ * to handle talking to it
+ *
+ * returns a socket to talk to the poller on, or NULL on error
+ */
+void * start_marquise_poller(void *zmq_context, char *broker_socket_address) {
+       	poller_args *pargs = malloc(sizeof(poller_args));
+	if (pargs == NULL) return perror("malloc"), NULL;
+
+	/* setup the broker's inbound IPC socket to avoid a race 
+	 * This is only threadsafe because of the boundry on thread
+	 * creation.
+	 */
+	pargs->collator_sock = zmq_socket(zmq_context, ZMQ_REP);
+	if (zmq_bind(pargs->collator_sock, POLLER_IPC_ADDRESS)) 
+		return perror("zmq_bind(" POLLER_IPC_ADDRESS ")"), NULL;
+
+	/* and our end */
+	void *poller_ipc_sock = zmq_socket(zmq_context, ZMQ_REQ);
+	if (zmq_connect(poller_ipc_sock, POLLER_IPC_ADDRESS)) 
+		return perror("zmq_connect(" POLLER_IPC_ADDRESS ")"), NULL;
+
+	/* connect to broker */
+	pargs->upstream_sock = zmq_socket(zmq_context, ZMQ_DEALER);
+	if (zmq_connect(pargs->upstream_sock, broker_socket_address)) 
+		return perror("zmq_bind"), NULL;
+
+	/* no idea why we're the ones opening the deferral file */
+	pargs->deferral_file = marquise_deferral_file_new();
+	if (pargs->deferral_file == NULL) {
+		zmq_close(pargs->upstream_sock);
+		return perror("marquise_deferral_file_new"), NULL;
+	}
+
+	/* start the poller thread */
+	pthread_t poller_pthread;
+	if (pthread_create(&poller_pthread, NULL, marquise_poller, pargs)) {
+		perror("pthread_create starting marquise poller");
+		zmq_close(pargs->upstream_sock);
+		return NULL;
+	}
+	return poller_ipc_sock;
+}
+static void shutdown_marquise_poller(void *zmq_context, void *poller_ipc_sock) {
+	/* Send a blocking "DIE" message
+	 * The poller won't ack until all messages are acked by the broker
+	 */ 
+	int ret;
+	do {
+		ret = zmq_send(poller_ipc_sock, "DIE", 3, 0);
+	} while (ret == -1 && errno == EINTR);
+	if (ret == -1) { perror("zmq_send"); return; }
+
+	/* Block on poller flushing and shutting down */
+	zmq_msg_t ack;
+	zmq_msg_init(&ack);
+	do {
+		ret = zmq_recvmsg(poller_ipc_sock, &ack, 0);
+	} while (ret == -1 && errno == EINTR);
+	if (ret == -1) { perror("zmq_send"); return; }
+	zmq_msg_close(&ack);
+
+	/* Poller is done. Cleanup our end of the socket */
+	zmq_close(poller_ipc_sock);
+}
+
 int main(int argc, char **argv) {
 	char *zmq_listen_address;
 	char *zmq_broker_address;
 	void *zmq_listen_sock;
+	void *zmq_context;
+	void *poller_ipc_socket;
 	int verbose = 0;
 #define verbose_printf(...) { if (verbose) fprintf(stderr, __VA_ARGS__); }
 
@@ -69,7 +137,8 @@ int main(int argc, char **argv) {
 		zmq_listen_address = DEFAULT_LISTEN_ADDRESS;
 	}
 		
-	void *zmq_context = zmq_ctx_new();
+	/* Kick off zmq */
+	zmq_context = zmq_ctx_new();
 
 	/*
 	 * Set up libmarquis' poller component to talk to the broker and
@@ -79,7 +148,8 @@ int main(int argc, char **argv) {
 	 * into DataBursts and compressed by the client
 	 */
 
-	// FIXME
+	poller_ipc_socket = start_marquise_poller(zmq_context, zmq_broker_address);
+	if (poller_ipc_socket == NULL) return -1;
 
 	/* 
 	 * Bind the zmq socket to listen
@@ -110,7 +180,13 @@ int main(int argc, char **argv) {
 		errno = 0;
 		do { ident_rx  = zmq_msg_recv(&ident, zmq_listen_sock, 0);
 		} while (errno == EINTR);
-		if (ident_rx < 1 ) return perror("zmq_msg_recv (ident_rx)"), 1;
+		if (ident_rx < 1 ) {
+			perror("zmq_msg_recv (ident_rx)");
+			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
+			zmq_close(zmq_listen_sock);
+			zmq_ctx_destroy(zmq_context);
+			return 1;
+		}
 		if (!zmq_msg_more(&ident)) {
 			fprintf(stderr, "Got short message (only 1 part). Skipping");
 			zmq_msg_close(&ident);
@@ -120,7 +196,13 @@ int main(int argc, char **argv) {
 		errno = 0;
 		do { msg_id_rx = zmq_msg_recv(&msg_id, zmq_listen_sock, 0);
 		} while (errno == EINTR);
-		if (msg_id_rx < 1 ) return perror("zmq_msg_recv (msg_id_rx)"), 1;
+		if (msg_id_rx < 1 ) {
+			perror("zmq_msg_recv (msg_id_rx)");
+			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
+			zmq_close(zmq_listen_sock);
+			zmq_ctx_destroy(zmq_context);
+			return 1;
+		}
 		if (!zmq_msg_more(&msg_id)) {
 			fprintf(stderr, "Got short message (only 2 parts). Skipping");
 			zmq_msg_close(&ident); zmq_msg_close(&msg_id);
@@ -130,8 +212,13 @@ int main(int argc, char **argv) {
 		errno = 0;
 		do { burst_rx = zmq_msg_recv(&burst, zmq_listen_sock, 0);
 		} while (errno == EINTR);
-		if (burst_rx < 0 ) 
-			return perror("zmq_msg_recv (burst_rx)"), 1;
+		if (burst_rx < 0 )  {
+			perror("zmq_msg_recv (burst_rx)");
+			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
+			zmq_close(zmq_listen_sock);
+			zmq_ctx_destroy(zmq_context);
+			return 1;
+		}
 
 		if (verbose) {
 			fprintf(stderr, "received %lu bytes\n\tidentity:\t0x", zmq_msg_size(&burst));
@@ -143,11 +230,37 @@ int main(int argc, char **argv) {
 
 		/*
 		 * send the compressed DataBurst to the libmarquise 
-		 * poller thread
+		 * poller thread.
 		 */
+		zmq_msg_t msg;
+		zmq_msg_init(&msg);
+		zmq_msg_copy(&msg, &burst); 
+		int ret;
+		do {
+			ret = zmq_sendmsg(poller_ipc_socket, &msg, 0);
+		} while (ret == -1 && errno == EINTR);
+		if (ret == -1) {
+			perror("zmq_sendmsg (to poller)");
+			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
+			zmq_close(zmq_listen_sock);
+			zmq_ctx_destroy(zmq_context);
+			return 1;
+		}
 
-		//FIXME: IMPLEMENT
-		
+		/* Wait for ack from poller */
+		zmq_msg_t ack;
+		zmq_msg_init(&ack);
+		do {
+			ret = zmq_msg_recv(&ack, poller_ipc_socket, 0);
+		} while (ret == -1 && errno == EINTR);
+		if (ret == -1) {
+			perror("zmq_msg_recv (waiting on internal ack from poller)");
+			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
+			zmq_close(zmq_listen_sock);
+			zmq_ctx_destroy(zmq_context);
+			return 1;
+		}
+		zmq_msg_close(&ack);
 
 		/* Ack back to the client now we have accepted responsibility
 		 * for delivery
@@ -166,6 +279,8 @@ int main(int argc, char **argv) {
 		zmq_msg_close(&burst);
 
 	}
-
+	shutdown_marquise_poller(zmq_context, poller_ipc_socket);
+	zmq_close(zmq_listen_sock);
+	zmq_ctx_destroy(zmq_context);
 	return 0;
 }

@@ -27,9 +27,13 @@ dist_noinst_HEADERS = defer.h \
 
 dist_noinst_DATA = lz4/*.c lz4/*.h
 
-bin_PROGRAMS = marquise
+bin_PROGRAMS = marquise marquised
+
 marquise_SOURCES = bin/marquise.c
 marquise_LDADD = libmarquise.la
+
+marquised_SOURCES = marquised.c
+marquised_LDADD = libmarquise.la
 
 %.pb-c.c %.pb-c.h: %.proto
 	    $(PROTOC_C) --proto_path=$(srcdir)/protobuf --c_out=$(builddir)/protobuf $^
