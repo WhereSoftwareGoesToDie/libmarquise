@@ -348,7 +348,7 @@ static inline zmq_msg_t *retrieve_msg(deferral_file * df)
 	return msg;
 }
 
-static void *poller(void *args_p)
+void *marquise_poller(void *args_p)
 {
 	uint64_t defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD;
 	uint16_t msg_id = 0;
@@ -723,7 +723,7 @@ marquise_consumer marquise_consumer_new(char *broker, double poll_period)
 		return NULL;, "mkstemp: '%s'", strerror(errno));
 
 	pthread_t poller_pthread;
-	err = pthread_create(&poller_pthread, NULL, poller, pa);
+	err = pthread_create(&poller_pthread, NULL, marquise_poller, pa);
 	fail_if(err, CLEANUP_SOCKETS;
 		return NULL;, "pthread_create returned: '%d'", err);
 
