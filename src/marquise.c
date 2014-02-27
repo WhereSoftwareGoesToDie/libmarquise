@@ -465,6 +465,7 @@ void *marquise_poller(void *args_p)
 					== -1,, "zmq_send (collator ack)");
 				INC_COUNTER(acks_sent);
 			} else {
+				debug_log("Poller resending deferred message.");
 				msg = deferred_msg;
 			}
 
