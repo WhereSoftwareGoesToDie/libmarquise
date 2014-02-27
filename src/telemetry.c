@@ -11,6 +11,7 @@ static volatile int telemetry_running = 0;
  */
 
 #define TELEMETRY_OUTPUT_FILE	stderr
+#define TELEMETRY_MAX_LINE_LENGTH 1024
 
 static inline uint64_t timestamp_now() {
         struct timespec ts;
@@ -34,12 +35,13 @@ uint32_t telemetry_hash(const char *buf, size_t buflen) {
  * the place
  */
 void telemetry_vprintf(uint32_t tag, const char *format, va_list vargs) {
+	char telem_str[TELEMETRY_MAX_LINE_LENGTH];
 	if (! telemetry_running)
 		return;
+	vsnprintf(telem_str, TELEMETRY_MAX_LINE_LENGTH-1, format, vargs);
+	telem_str[TELEMETRY_MAX_LINE_LENGTH-1] = 0;
 	/* For now just output to stderr */
-	fprintf(TELEMETRY_OUTPUT_FILE, "TTT %lu %08x ",timestamp_now(), tag);
-	vfprintf(TELEMETRY_OUTPUT_FILE, format, vargs);
-	fprintf(TELEMETRY_OUTPUT_FILE, "\n");
+	fprintf(TELEMETRY_OUTPUT_FILE, "TTT %lu %08x %s\n",timestamp_now(), tag, telem_str);
 }
 
 void telemetry_printf(uint32_t tag, const char *format, ...) {
