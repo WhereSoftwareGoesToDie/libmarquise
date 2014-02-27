@@ -19,7 +19,10 @@
 #include <string.h>
 #include <math.h>
 
+#include "telemetry.h"
+
 #define LIBMARQUISE_PROFILING
+
 
 static void debug_log(char *format, ...)
 {
@@ -28,7 +31,8 @@ static void debug_log(char *format, ...)
 
 	va_list args;
 	va_start(args, format);
-	vfprintf(stderr, format, args);
+	//vfprintf(stderr, format, args);
+	telemetry_vprintf(0, format, args);
 	va_end(args);
 }
 
@@ -45,7 +49,7 @@ static frame *accumulate_databursts(gpointer zmq_message, gint * queue_length)
 
 	// Reset and return result
 	if (!zmq_message && !queue_length) {
-		debug_log("Resetting accumulator\n");
+		debug_log("Resetting accumulator");
 
 		frame *ret = accumulator;
 		accumulator = NULL;
@@ -58,7 +62,7 @@ static frame *accumulate_databursts(gpointer zmq_message, gint * queue_length)
 	}
 
 	if (!accumulator) {
-		debug_log("Initializing accumulator for queue length %u\n",
+		debug_log("Initializing accumulator for queue length %u",
 			  *queue_length);
 		accumulator = calloc(*queue_length, sizeof(frame));
 		if (!accumulator) {
@@ -124,7 +128,7 @@ static void send_message_list(GSList * message_list, void *destination_sock)
 	if (!message_list)
 		return;
 
-	debug_log("Sending queue\n");
+	debug_log("Sending queue");
 
 	// This iterates over the entire list, passing each
 	// element to accumulate_databursts
@@ -139,12 +143,12 @@ static void send_message_list(GSList * message_list, void *destination_sock)
 	size_t max_burst_length = get_databurst_size(frames, list_length);
 	burst->data = malloc(max_burst_length);
 	burst->length = aggregate_frames(frames, list_length, burst->data);
-	debug_log("Accumulated bursts serialized to %d bytes\n", burst->length);
+	debug_log("Accumulated bursts serialized to %d bytes", burst->length);
 	free(frames);
 	fail_if(compress_burst(burst)
 		, return;, "lz4 compression failed");
 
-	debug_log("Accumulated bursts compressed to %d bytes\n", burst->length);
+	debug_log("Accumulated bursts compressed to %d bytes", burst->length);
 
 	int ret;
 	do {
@@ -153,7 +157,7 @@ static void send_message_list(GSList * message_list, void *destination_sock)
 
 	free_databurst(burst);
 
-	debug_log("zmq_send() to poller returned %d\n", ret);
+	debug_log("zmq_send() to poller returned %d", ret);
 
 	fail_if(ret == -1, return;, "sending message: '%s'", strerror(errno));
 
@@ -230,7 +234,7 @@ static void *collator(void *args_p)
 				shutdown = 1;
 				debug_log
 				    ("libmarquise: poller received shutdown. processing "
-				     "outstanding queue\n");
+				     "outstanding queue");
 				zmq_msg_close(&ipc_msg);
 				continue;
 			}
@@ -303,7 +307,7 @@ static void *collator(void *args_p)
 	// All done, we can send an ack to let marquise_consumer_shutdown
 	// return
 	if (zmq_send(args->ipc_event_sock, "", 0, 0) < 0)
-		perror("zmq_send acking in marquise_consumer_shutdown\n");
+		perror("zmq_send acking in marquise_consumer_shutdown");
 
 	zmq_close(args->client_sock);
 	zmq_close(args->poller_sock);
@@ -463,7 +467,7 @@ void *marquise_poller(void *args_p)
 
 			if (water_mark < high_water_mark) {
 				debug_log
-				    ("Poller sending message, free slots: %d / %d\n",
+				    ("Poller sending message, free slots: %d / %d",
 				     high_water_mark - water_mark,
 				     high_water_mark - in_flight);
 
@@ -499,7 +503,7 @@ void *marquise_poller(void *args_p)
 				} while (tx == -1 && errno == EINTR);
 
 				debug_log
-				    ("zmq_send() of msg_id to broker returned %d\n",
+				    ("zmq_send() of msg_id to broker returned %d",
 				     tx);
 
 				fail_if(tx == -1, TRANSMIT_CLEANUP;
@@ -511,7 +515,7 @@ void *marquise_poller(void *args_p)
 				} while (tx == -1 && errno == EINTR);
 
 				debug_log
-				    ("zmq_send() of burst to broker returned %d\n",
+				    ("zmq_send() of burst to broker returned %d",
 				     tx);
 
 				fail_if(tx == -1, TRANSMIT_CLEANUP;
@@ -544,7 +548,7 @@ void *marquise_poller(void *args_p)
 			int rx = zmq_msg_recv(&msg_id, args->upstream_sock, 0);
 
 			debug_log
-			    ("zmq_recv() of ack id from broker returned %d\n",
+			    ("zmq_recv() of ack id from broker returned %d",
 			     rx);
 
 			if (rx != sizeof(uint16_t)) {
@@ -561,7 +565,7 @@ void *marquise_poller(void *args_p)
 			}
 
 			debug_log
-			    ("zmq_recv() of ack msg from broker returned %d\n",
+			    ("zmq_recv() of ack msg from broker returned %d",
 			     rx);
 
 			// Both failure and success require removal
@@ -609,26 +613,15 @@ void *marquise_poller(void *args_p)
 	free(in_flight);
 
 #ifdef LIBMARQUISE_PROFILING
-	debug_log("libmarquise poll thread profiling:\n"
-		  "        messages_in = %lu\n"
-		  "        messages_in_special = %lu\n"
-		  "        acks_sent = %lu\n"
-		  "        messages_sent_upstream = %lu\n"
-		  "        acks_received_from_upstream = %lu\n"
-		  "        messages_timed_out = %lu\n"
-		  "        messages_deferred_to_disk = %lu\n"
-		  "        messages_deferred_to_memory = %lu\n"
-		  "        messages_read_from_disk = %lu\n"
-		  "        poll_loops = %lu\n",
-		  messages_in,
-		  messages_in_special,
-		  acks_sent,
-		  messages_sent_upstream,
-		  acks_received_from_upstream,
-		  messages_timed_out,
-		  messages_deferred_to_disk,
-		  messages_deferred_to_memory,
-		  messages_read_from_disk, poll_loops);
+	telemetry_printf(-1, "messages_in = %lu", messages_in);
+	telemetry_printf(-1, "messages_in_special = %lu", messages_in_special);
+	telemetry_printf(-1, "acks_sent = %lu", acks_sent);
+	telemetry_printf(-1, "messages_sent_upstream = %lu", messages_sent_upstream);
+	telemetry_printf(-1, "acks_received_from_upstream = %lu", acks_received_from_upstream);
+	telemetry_printf(-1, "messages_timed_out = %lu", messages_timed_out);
+	telemetry_printf(-1, "messages_deferred_to_disk = %lu", messages_deferred_to_disk);
+	telemetry_printf(-1, "messages_deferred_to_memory = %lu", messages_deferred_to_memory);
+	telemetry_printf(-1, "messages_read_from_disk = %lu", messages_read_from_disk);
 #endif
 
 	return NULL;
@@ -642,6 +635,8 @@ marquise_consumer marquise_consumer_new(char *broker, double poll_period)
 	void *context = zmq_ctx_new();
 	fail_if(!context, return NULL;,
 		"zmq_ctx_new failed, this is very confusing.");
+
+	init_telemetry();
 
 #define NEW_SOCKET( var, type )\
         void *var = zmq_socket(context, type); \
@@ -764,6 +759,8 @@ void marquise_consumer_shutdown(marquise_consumer consumer)
 	zmq_msg_close(&ack);
 	zmq_close(collator_ipc_req_socket);
 	zmq_ctx_destroy(consumer);
+
+	shutdown_telemetry();
 }
 
 #define conn_fail_if( assertion, ... ) \
