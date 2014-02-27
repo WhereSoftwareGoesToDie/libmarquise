@@ -636,7 +636,10 @@ marquise_consumer marquise_consumer_new(char *broker, double poll_period)
 	fail_if(!context, return NULL;,
 		"zmq_ctx_new failed, this is very confusing.");
 
-	init_telemetry();
+	if (getenv("LIBMARQUISE_DEBUG")) {
+		init_telemetry();
+		debug_log("telemetry starts");
+	}
 
 #define NEW_SOCKET( var, type )\
         void *var = zmq_socket(context, type); \
@@ -760,7 +763,10 @@ void marquise_consumer_shutdown(marquise_consumer consumer)
 	zmq_close(collator_ipc_req_socket);
 	zmq_ctx_destroy(consumer);
 
-	shutdown_telemetry();
+	if (getenv("LIBMARQUISE_DEBUG")) {
+		debug_log("telemetry ends");
+		shutdown_telemetry();
+	}
 }
 
 #define conn_fail_if( assertion, ... ) \

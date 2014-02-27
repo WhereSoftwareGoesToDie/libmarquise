@@ -3,6 +3,9 @@
 #include <stdarg.h>
 #include <time.h>
 
+/* Only write out telemetry if it has been started */
+static volatile int telemetry_running = 0;
+
 /* Abstract out recieving internal telemetry data for profiling and
  * debugging
  */
@@ -31,6 +34,8 @@ uint32_t telemetry_hash(const char *buf, size_t buflen) {
  * the place
  */
 void telemetry_vprintf(uint32_t tag, const char *format, va_list vargs) {
+	if (! telemetry_running)
+		return;
 	/* For now just output to stderr */
 	fprintf(TELEMETRY_OUTPUT_FILE, "TTT %lu %08x ",timestamp_now(), tag);
 	vfprintf(TELEMETRY_OUTPUT_FILE, format, vargs);
@@ -45,13 +50,11 @@ void telemetry_printf(uint32_t tag, const char *format, ...) {
 }
 
 /* startup and shutdown.
- * for now only gives start and stop timestamps
  */
 int init_telemetry() {
-	telemetry_printf(0, "Telemetry starts");
+	telemetry_running = 1;
 	return 0;
 }
-
 void shutdown_telemetry() {
-	telemetry_printf(0, "Telemetry ends");
+	telemetry_running = 0;
 }
