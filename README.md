@@ -34,6 +34,8 @@ The following are optional, and modify default behaviours:
    be written in order to force collation and sending; consequently,
    this is the maximum number of DataFrames which will be encoded in the
    DataBurst that libmarquise sends).
+ - LIBMARQUISE_PROFILING (enable detailed debug output for tracking
+   individual dataframes)
 
 bindings
 ========
