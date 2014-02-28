@@ -26,6 +26,7 @@ m4/
 *.la
 src/.libs/
 src/marquise
+src/marquised
 src/protobuf/DataFrame.pb-c.c
 src/protobuf/DataFrame.pb-c.h
 src/protobuf/DataBurst.pb-c.c
