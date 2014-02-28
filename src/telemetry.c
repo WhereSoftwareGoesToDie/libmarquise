@@ -54,6 +54,7 @@ void telemetry_printf(uint32_t tag, const char *format, ...) {
 /* startup and shutdown.
  */
 int init_telemetry() {
+	setvbuf(stderr, NULL, _IOLBF, 0);
 	telemetry_running = 1;
 	return 0;
 }
