@@ -425,10 +425,10 @@ void *marquise_poller(void *args_p)
 
 #ifdef LIBMARQUISE_PROFILING
 		gulong usec;
-		if (((long) g_timer_elapsed(profile_timer, &usec)) > PROFILING_STATUS_SECS) {
+		if (((long) g_timer_elapsed(profile_timer, &usec)) >= PROFILING_STATUS_SECS) {
 			g_timer_reset(profile_timer);
 			DUMP_PROFILE_COUNTERS;
-			telemetry_printf(-1, "messages_inflight = %lu", water_mark-in_flight);
+			telemetry_printf(-1, "messages_inflight = %lu", water_mark-in_flight+1);
 		}
 #endif
 		//telemetry_printf(POLLER_THREAD_TAG, "poller_thread poll_start maxblock = %d",poll_period);
@@ -463,7 +463,7 @@ void *marquise_poller(void *args_p)
 
 		// Check if we need to get a deferred message
 		deferred_msg = NULL;
-		if ((now > defer_expiry || shutting_down || read_success)
+		if ((defer_expiry < now || shutting_down || read_success)
 		    && water_mark != high_water_mark) {
 			deferred_msg = retrieve_msg(args->deferral_file);
 			if (deferred_msg == NULL) {
