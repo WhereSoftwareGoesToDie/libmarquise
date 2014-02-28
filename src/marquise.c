@@ -463,7 +463,7 @@ void *marquise_poller(void *args_p)
 
 		// Check if we need to get a deferred message
 		deferred_msg = NULL;
-		if ((defer_expiry > now || shutting_down || read_success)
+		if ((now > defer_expiry || shutting_down || read_success)
 		    && water_mark != high_water_mark) {
 			deferred_msg = retrieve_msg(args->deferral_file);
 			if (deferred_msg == NULL) {
