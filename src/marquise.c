@@ -23,6 +23,11 @@
 
 #define LIBMARQUISE_PROFILING
 
+/* per-thread tags for telemetry that isn't associated with data
+ */
+#define COLLATE_THREAD_TAG -2
+#define POLLER_THREAD_TAG -3
+#define MSG_HASH(msg_p) telemetry_hash(zmq_msg_data(msg_p), zmq_msg_size(msg_p))
 
 static void debug_log(char *format, ...)
 {
@@ -149,7 +154,7 @@ static void send_message_list(GSList * message_list, void *destination_sock)
 
 	debug_log("Accumulated bursts compressed to %d bytes\n", burst->length);
 	uint32_t burst_hash = telemetry_hash((char *)burst->data, burst->length);
-	telemetry_printf(burst_hash, "collator_thread created_databurst frames %d compressed_bytes %d", list_length, burst->length);
+	telemetry_printf(burst_hash, "collator_thread created_databurst frames = %d compressed_bytes = %d", list_length, burst->length);
 
 	int ret;
 	do {
@@ -235,6 +240,7 @@ static void *collator(void *args_p)
 			if (rx == 3
 			    && !strncmp(zmq_msg_data(&ipc_msg), "DIE", 3)) {
 				shutdown = 1;
+				telemetry_printf(COLLATE_THREAD_TAG, "collator_thread rx_die_ipc_from user_thread");
 				debug_log
 				    ("libmarquise: poller received shutdown. processing "
 				     "outstanding queue\n");
@@ -243,6 +249,7 @@ static void *collator(void *args_p)
 			}
 			debug_log("libmarquise: poller received unknown IPC"
 				  "control message\n");
+			telemetry_printf(COLLATE_THREAD_TAG, "collator_thread unknown_ipc");
 			zmq_msg_close(&ipc_msg);
 			continue;
 		}
@@ -285,10 +292,13 @@ static void *collator(void *args_p)
 	}
 
 	// Flush the queue one last time before exit
+	telemetry_printf(COLLATE_THREAD_TAG, "collator_thread start_shutdown_flush");
 	send_message_list(message_list, args->poller_sock);
+	telemetry_printf(COLLATE_THREAD_TAG, "collator_thread end_shutdown_flush");
 
 	// All messages are sent, we now tell the poller thread to shutdown
 	// cleanly and wait for it to send all messages upstream to the broker.
+	telemetry_printf(COLLATE_THREAD_TAG, "collator_thread send_die_to collator_thread");
 	int ret;
 	do {
 		ret = zmq_send(args->poller_sock, "DIE", 3, 0);
@@ -307,8 +317,11 @@ static void *collator(void *args_p)
 	fail_if(ret == -1, return NULL;, "zmq_recvmsg: %s", strerror(errno));
 	zmq_msg_close(&ack);
 
+	telemetry_printf(COLLATE_THREAD_TAG, "collator_thread rx_die_ack_from poller_thread");
+
 	// All done, we can send an ack to let marquise_consumer_shutdown
 	// return
+	telemetry_printf(COLLATE_THREAD_TAG, "collator_thread ack_die_ipc_to user_thread");
 	if (zmq_send(args->ipc_event_sock, "", 0, 0) < 0)
 		perror("zmq_send acking in marquise_consumer_shutdown");
 
@@ -318,6 +331,7 @@ static void *collator(void *args_p)
 
 	free(args);
 	g_timer_destroy(timer);
+
 
 	return NULL;
 }
@@ -395,12 +409,15 @@ void *marquise_poller(void *args_p)
 		poll_period = read_success ? 0 : poll_period;
 		read_success = 0;
 
+		//telemetry_printf(POLLER_THREAD_TAG, "poller_thread poll_start maxblock = %d",poll_period);
 		INC_COUNTER(poll_loops);
 		if (zmq_poll(items, 2, poll_period) == -1) {
 			syslog(LOG_ERR, "libmarquise error: zmq_poll "
 			       "got unknown error code: %d", errno);
 			break;
 		}
+		//telemetry_printf(POLLER_THREAD_TAG, "poller_thread poll_finish");
+
 		// Check for timeouts
 		uint64_t now = timestamp_now();
 		message_in_flight *i;
@@ -410,6 +427,9 @@ void *marquise_poller(void *args_p)
 				// defer to disk. Another possible option here
 				// would be to re-transmit to ourselves for
 				// immediate retry.
+				telemetry_printf(MSG_HASH(&i->msg),
+						"poller_thread defer_to_disk"
+						" timeout_waiting_for_ack");
 				defer_msg(&i->msg, args->deferral_file);
 				zmq_msg_close(&i->msg);
 				*i = *water_mark;
@@ -435,6 +455,8 @@ void *marquise_poller(void *args_p)
 			} else {
 				read_success = 1;
 				INC_COUNTER(messages_read_from_disk);
+				telemetry_printf(MSG_HASH(deferred_msg),
+						"poller_thread read_from_disk");
 			}
 		}
 		// Check for incoming bursts from the collator thread, if we
@@ -456,14 +478,21 @@ void *marquise_poller(void *args_p)
 					zmq_msg_close(msg);
 					shutting_down = 1;
 					free(msg);
+					telemetry_printf(POLLER_THREAD_TAG, 
+						"poller_thread rx_die_ipc_from collate_thread");
 					continue;
 				}
 				INC_COUNTER(messages_in);
+				uint32_t msg_hash = MSG_HASH(msg);
+				telemetry_printf(msg_hash,
+						"poller_thread rx_msg_from collate_thread");
 
 				// Ack immediately
 				fail_if(zmq_send(args->collator_sock, "", 0, 0)
 					== -1,, "zmq_send (collator ack)");
 				INC_COUNTER(acks_sent);
+				telemetry_printf(msg_hash,
+						"poller_thread sent_ack_to collate_thread");
 			} else {
 				msg = deferred_msg;
 			}
@@ -527,10 +556,17 @@ void *marquise_poller(void *args_p)
 					"zmq_send: %s", strerror(errno));
 
 				INC_COUNTER(messages_sent_upstream);
+				telemetry_printf(MSG_HASH(&water_mark->msg),
+					       	"poller_thread sent_to broker"
+						" msg_id = %d",
+						water_mark->msg_id);
 			} else {
 				// Defer to disk as there are already too many
 				// messages in flight.
 				defer_msg(msg, args->deferral_file);
+				telemetry_printf(MSG_HASH(msg),
+						"poller_thread defer_to_disk"
+						" too_many_inflight");
 				zmq_msg_close(msg);
 				INC_COUNTER(messages_deferred_to_disk);
 			}
@@ -555,6 +591,9 @@ void *marquise_poller(void *args_p)
 			     rx);
 
 			if (rx != sizeof(uint16_t)) {
+				telemetry_printf(POLLER_THREAD_TAG,
+						"poller_thread rx_invalid_ack_from_broker"
+						" incorrect_ack_size" );
 				zmq_msg_close(&msg_id);
 				zmq_msg_close(&ack);
 				continue;
@@ -583,14 +622,29 @@ void *marquise_poller(void *args_p)
 			// the inflight list by replacing it with the
 			// last element then decrementing the
 			// water_mark pointer.
+			int acks_matched = 0;
 			for (i = in_flight; i <= water_mark; i++) {
 				if (i->msg_id == *ack_msg_id) {
+					telemetry_printf(MSG_HASH(&i->msg),
+						"poller_thread rx_ack_from broker"
+						" msg_id = %d", *ack_msg_id);
 					zmq_msg_close(&i->msg);
 					*i = *water_mark;
 					water_mark--;
+					acks_matched++;
 					INC_COUNTER
 					    (acks_received_from_upstream);
 				}
+			}
+			if (acks_matched == 0) {
+				telemetry_printf(POLLER_THREAD_TAG,
+						"poller_thread rx_invalid_ack_from_broker"
+						" unknown_msg msg_id = %d", *ack_msg_id);
+			} else if (acks_matched > 1) {
+				telemetry_printf(POLLER_THREAD_TAG,
+						"poller_thread rx_invalid_ack_from_broker"
+						" matched_multiple_messages"
+						" msg_id = %d", *ack_msg_id);
 			}
 
 			// If we got an error, syslog will want to know about it.
