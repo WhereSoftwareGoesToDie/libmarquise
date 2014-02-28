@@ -22,6 +22,7 @@
 #include "telemetry.h"
 
 #define LIBMARQUISE_PROFILING
+#define PROFILING_STATUS_SECS	5
 
 /* per-thread tags for telemetry that isn't associated with data
  */
@@ -42,8 +43,19 @@ static void debug_log(char *format, ...)
 
 #ifdef LIBMARQUISE_PROFILING
 #define INC_COUNTER(_counter) ((_counter)++)
+#define DUMP_PROFILE_COUNTERS \
+	telemetry_printf(-1, "messages_in = %lu", messages_in);\
+	telemetry_printf(-1, "messages_in_special = %lu", messages_in_special);\
+	telemetry_printf(-1, "acks_sent = %lu", acks_sent);\
+	telemetry_printf(-1, "messages_sent_upstream = %lu", messages_sent_upstream);\
+	telemetry_printf(-1, "acks_received_from_upstream = %lu", acks_received_from_upstream);\
+	telemetry_printf(-1, "messages_timed_out = %lu", messages_timed_out);\
+	telemetry_printf(-1, "messages_deferred_to_disk = %lu", messages_deferred_to_disk);\
+	telemetry_printf(-1, "messages_deferred_to_memory = %lu", messages_deferred_to_memory);\
+	telemetry_printf(-1, "messages_read_from_disk = %lu", messages_read_from_disk);
 #else
 #define INC_COUNTER(_counter)
+#define DUMP_PROFILE_COUNTERS
 #endif
 
 static frame *accumulate_databursts(gpointer zmq_message, gint * queue_length)
@@ -384,6 +396,7 @@ void *marquise_poller(void *args_p)
 	zmq_msg_t *deferred_msg = NULL;
 
 #ifdef LIBMARQUISE_PROFILING
+	GTimer *profile_timer = g_timer_new();
 	uint64_t messages_in = 0;
 	uint64_t messages_in_special = 0;
 	uint64_t acks_sent = 0;
@@ -394,6 +407,7 @@ void *marquise_poller(void *args_p)
 	uint64_t messages_deferred_to_memory = 0;
 	uint64_t messages_read_from_disk = 0;
 	uint64_t poll_loops = 0;
+	g_timer_reset(profile_timer);
 #endif
 
 	zmq_pollitem_t items[] = {
@@ -409,6 +423,14 @@ void *marquise_poller(void *args_p)
 		poll_period = read_success ? 0 : poll_period;
 		read_success = 0;
 
+#ifdef LIBMARQUISE_PROFILING
+		gulong usec;
+		if (((long) g_timer_elapsed(profile_timer, &usec)) > PROFILING_STATUS_SECS) {
+			g_timer_reset(profile_timer);
+			DUMP_PROFILE_COUNTERS;
+			telemetry_printf(-1, "messages_inflight = %lu", water_mark-in_flight);
+		}
+#endif
 		//telemetry_printf(POLLER_THREAD_TAG, "poller_thread poll_start maxblock = %d",poll_period);
 		INC_COUNTER(poll_loops);
 		if (zmq_poll(items, 2, poll_period) == -1) {
@@ -667,21 +689,11 @@ void *marquise_poller(void *args_p)
 	marquise_deferral_file_close(args->deferral_file);
 	marquise_deferral_file_free(args->deferral_file);
 
+
 	free(args);
 	free(in_flight);
-
-#ifdef LIBMARQUISE_PROFILING
-	telemetry_printf(-1, "messages_in = %lu", messages_in);
-	telemetry_printf(-1, "messages_in_special = %lu", messages_in_special);
-	telemetry_printf(-1, "acks_sent = %lu", acks_sent);
-	telemetry_printf(-1, "messages_sent_upstream = %lu", messages_sent_upstream);
-	telemetry_printf(-1, "acks_received_from_upstream = %lu", acks_received_from_upstream);
-	telemetry_printf(-1, "messages_timed_out = %lu", messages_timed_out);
-	telemetry_printf(-1, "messages_deferred_to_disk = %lu", messages_deferred_to_disk);
-	telemetry_printf(-1, "messages_deferred_to_memory = %lu", messages_deferred_to_memory);
-	telemetry_printf(-1, "messages_read_from_disk = %lu", messages_read_from_disk);
-#endif
-
+	g_timer_destroy(profile_timer);
+	DUMP_PROFILE_COUNTERS;
 	return NULL;
 }
 
