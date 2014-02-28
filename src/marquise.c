@@ -475,6 +475,7 @@ void *marquise_poller(void *args_p)
 					break;
 				}
 			} else {
+				defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD;
 				read_success = 1;
 				INC_COUNTER(messages_read_from_disk);
 				telemetry_printf(MSG_HASH(deferred_msg),
