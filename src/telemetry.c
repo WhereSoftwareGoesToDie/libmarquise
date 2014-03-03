@@ -25,7 +25,7 @@ static inline uint64_t timestamp_now() {
 uint32_t telemetry_hash(const char *buf, size_t buflen) {
 	uint32_t h = 5381;
 	while (buflen)
-		h += buf[--buflen];
+		h = (h<<5) + h + buf[--buflen];
 	return h;
 }
 
