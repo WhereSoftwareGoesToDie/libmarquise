@@ -517,7 +517,7 @@ void *marquise_poller(void *args_p)
 				telemetry_printf(msg_hash,
 						"poller_thread sent_ack_to collate_thread");
 			} else {
-				debug_log("Poller resending deferred message.");
+				debug_log("Poller resending deferred message.\n");
 				msg = deferred_msg;
 			}
 
