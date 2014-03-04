@@ -21,6 +21,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <endian.h>
+#include <signal.h>
 #include <assert.h>
 #include <zmq.h>
 #include <pthread.h>
@@ -30,6 +31,8 @@
 
 #define DEFAULT_LISTEN_ADDRESS	"tcp://127.0.0.1:5560/"
 #define POLLER_IPC_ADDRESS	"inproc://poller"
+
+char do_shutdown;
 
 /* most inefficient hexdump on the planet */
 static void fhexdump(FILE *fp, uint8_t *buf, size_t bufsiz) {
@@ -105,8 +108,22 @@ static void shutdown_marquise_poller(void *zmq_context, void *poller_ipc_sock) {
 	zmq_close(poller_ipc_sock);
 }
 
+void marquised_shutdown(void *zmq_context, void *poller_ipc_sock, void *zmq_listen_sock) {
+	printf("marquised shutting down.\n");
+	shutdown_marquise_poller(zmq_context, poller_ipc_sock);
+	zmq_close(zmq_listen_sock);
+	zmq_ctx_destroy(zmq_context);
+	exit(0);
+}
+
+void *handle_exit_signal(int sig) {
+	printf("Caught fatal signal, cleaning up...\n");
+	do_shutdown = 1;
+}
+		
 int main(int argc, char **argv) {
 	char *zmq_listen_address;
+	sigset_t sig_mask;
 	char *zmq_broker_address;
 	void *zmq_listen_sock;
 	void *zmq_context;
@@ -159,6 +176,10 @@ int main(int argc, char **argv) {
 	if (zmq_bind(zmq_listen_sock, zmq_listen_address)) 
 		return perror("zmq_bind"), 1;
 
+	signal(SIGTERM, handle_exit_signal);
+	signal(SIGHUP, handle_exit_signal);
+	signal(SIGINT, handle_exit_signal);
+
 	/*
 	 * Receive handler.
 	 *
@@ -177,9 +198,13 @@ int main(int argc, char **argv) {
 		size_t msg_id_rx;
 		size_t burst_rx;
 
+		if (do_shutdown) {
+			marquised_shutdown(zmq_context, poller_ipc_socket, zmq_listen_sock);
+		}
+
 		errno = 0;
 		do { ident_rx  = zmq_msg_recv(&ident, zmq_listen_sock, 0);
-		} while (errno == EINTR);
+		} while (errno == EINTR && !do_shutdown);
 		if (ident_rx < 1 ) {
 			perror("zmq_msg_recv (ident_rx)");
 			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
@@ -195,7 +220,7 @@ int main(int argc, char **argv) {
 
 		errno = 0;
 		do { msg_id_rx = zmq_msg_recv(&msg_id, zmq_listen_sock, 0);
-		} while (errno == EINTR);
+		} while (errno == EINTR && !do_shutdown);
 		if (msg_id_rx < 1 ) {
 			perror("zmq_msg_recv (msg_id_rx)");
 			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
@@ -211,7 +236,7 @@ int main(int argc, char **argv) {
 
 		errno = 0;
 		do { burst_rx = zmq_msg_recv(&burst, zmq_listen_sock, 0);
-		} while (errno == EINTR);
+		} while (errno == EINTR && !do_shutdown);
 		if (burst_rx < 0 )  {
 			perror("zmq_msg_recv (burst_rx)");
 			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
@@ -238,7 +263,7 @@ int main(int argc, char **argv) {
 		int ret;
 		do {
 			ret = zmq_sendmsg(poller_ipc_socket, &msg, 0);
-		} while (ret == -1 && errno == EINTR);
+		} while (ret == -1 && errno == EINTR && !do_shutdown);
 		if (ret == -1) {
 			perror("zmq_sendmsg (to poller)");
 			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
@@ -252,7 +277,7 @@ int main(int argc, char **argv) {
 		zmq_msg_init(&ack);
 		do {
 			ret = zmq_msg_recv(&ack, poller_ipc_socket, 0);
-		} while (ret == -1 && errno == EINTR);
+		} while (ret == -1 && errno == EINTR && !do_shutdown);
 		if (ret == -1) {
 			perror("zmq_msg_recv (waiting on internal ack from poller)");
 			shutdown_marquise_poller(zmq_context, poller_ipc_socket);
@@ -279,8 +304,6 @@ int main(int argc, char **argv) {
 		zmq_msg_close(&burst);
 
 	}
-	shutdown_marquise_poller(zmq_context, poller_ipc_socket);
-	zmq_close(zmq_listen_sock);
-	zmq_ctx_destroy(zmq_context);
+	marquised_shutdown(zmq_context, poller_ipc_socket, zmq_listen_sock);
 	return 0;
 }
