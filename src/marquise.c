@@ -463,7 +463,7 @@ void *marquise_poller(void *args_p)
 
 		// Check if we need to get a deferred message
 		deferred_msg = NULL;
-		if ((defer_expiry < now || shutting_down || read_success)
+		if ((defer_expiry < now || shutting_down)
 		    && water_mark != high_water_mark) {
 			deferred_msg = retrieve_msg(args->deferral_file);
 			if (deferred_msg == NULL) {
@@ -474,8 +474,11 @@ void *marquise_poller(void *args_p)
 				if (shutting_down && water_mark < in_flight) {
 					break;
 				}
-			} else {
+				// There is nothing currently deferred to disk.
+				// Wait at least POLLER_DEFER_PERIOD before checking
+				// again
 				defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD;
+			} else {
 				read_success = 1;
 				INC_COUNTER(messages_read_from_disk);
 				telemetry_printf(MSG_HASH(deferred_msg),
@@ -581,7 +584,7 @@ void *marquise_poller(void *args_p)
 
 				INC_COUNTER(messages_sent_upstream);
 				telemetry_printf(MSG_HASH(&water_mark->msg),
-					       	"poller_thread sent_to broker"
+						"poller_thread sent_to broker"
 						" msg_id = %d",
 						water_mark->msg_id);
 			} else {
