@@ -117,10 +117,10 @@ deferral_file *marquise_deferral_file_new()
 	return NULL;
 }
 
-void marquise_deferral_file_close(deferral_file * df)
+int marquise_deferral_file_close(deferral_file * df)
 {
 	fclose(df->stream);
-	unlink(df->path);
+	return unlink(df->path);
 }
 
 void marquise_deferral_file_free(deferral_file * df)

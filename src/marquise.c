@@ -690,7 +690,9 @@ void *marquise_poller(void *args_p)
 	zmq_close(args->upstream_sock);
 
 	// TODO: Assert that the deferral file is empty
-	marquise_deferral_file_close(args->deferral_file);
+	if (marquise_deferral_file_close(args->deferral_file) != 0) {
+		debug_log("Failed to unlink deferral file: %s\n", strerror(errno));
+	}
 	marquise_deferral_file_free(args->deferral_file);
 
 
