@@ -11,9 +11,6 @@
  * FIXME:
  * 	* Currently does not honour the origin of the user data
  * 	  and substitutes it's own
- * TODO:
- * 	* Handle signals for graceful flush and exit
- *
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -213,7 +210,7 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		if (!zmq_msg_more(&ident)) {
-			fprintf(stderr, "Got short message (only 1 part). Skipping");
+			fprintf(stderr, "Got short message (only 1 part). Skipping.\n");
 			zmq_msg_close(&ident);
 			continue;
 		}
@@ -229,7 +226,7 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		if (!zmq_msg_more(&msg_id)) {
-			fprintf(stderr, "Got short message (only 2 parts). Skipping");
+			fprintf(stderr, "Got short message (only 2 parts). Skipping.\n");
 			zmq_msg_close(&ident); zmq_msg_close(&msg_id);
 			continue;
 		}
