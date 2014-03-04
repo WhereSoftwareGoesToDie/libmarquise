@@ -113,14 +113,13 @@ void marquised_shutdown(void *zmq_context, void *poller_ipc_sock, void *zmq_list
 	exit(0);
 }
 
-void *handle_exit_signal(int sig) {
+void handle_exit_signal(int sig) {
 	printf("Caught fatal signal, cleaning up...\n");
 	do_shutdown = 1;
 }
 		
 int main(int argc, char **argv) {
 	char *zmq_listen_address;
-	sigset_t sig_mask;
 	char *zmq_broker_address;
 	void *zmq_listen_sock;
 	void *zmq_context;
