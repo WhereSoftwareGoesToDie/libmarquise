@@ -472,9 +472,6 @@ void *marquise_poller(void *args_p)
 				// we have an empty in flight list, then we are
 				// ready to shutdown.
 				if (shutting_down && water_mark < in_flight) {
-					if (marquise_deferral_file_cleanup(args->deferral_file) != 0) {
-						debug_log("Failed to cleanup deferral file: %s\n", strerror(errno));
-					}
 					break;
 				}
 				// There is nothing currently deferred to disk.

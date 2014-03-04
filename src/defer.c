@@ -123,10 +123,6 @@ void marquise_deferral_file_close(deferral_file * df)
 	unlink(df->path);
 }
 
-int marquise_deferral_file_cleanup(deferral_file * df) {
-	return unlink(df->path);
-}
-
 void marquise_deferral_file_free(deferral_file * df)
 {
 	free(df->path);
