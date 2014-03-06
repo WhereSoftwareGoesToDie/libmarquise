@@ -149,7 +149,8 @@ static void send_message_list(GSList * message_list, void *destination_sock)
 	// This iterates over the entire list, passing each
 	// element to accumulate_databursts
 	guint list_length = g_slist_length(message_list);
-	g_slist_foreach(g_slist_reverse(message_list)
+	message_list = g_slist_reverse(message_list);
+	g_slist_foreach(message_list
 			, (GFunc) accumulate_databursts, &list_length);
 	g_slist_free(message_list);
 	message_list = NULL;
