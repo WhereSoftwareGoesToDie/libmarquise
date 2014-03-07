@@ -12,10 +12,10 @@ typedef void *marquise_connection;
 
 // This can't be more than 65535 without changing the msg_id data type of the
 // message_in_flight struct.
-#define POLLER_HIGH_WATER_MARK 128
+#define POLLER_HIGH_WATER_MARK 256
 
 // Microseconds till a message expires
-#define POLLER_EXPIRY 180000000000	// 3 minutes till we try resending
+#define POLLER_EXPIRY 600000000000	// 10 minutes till we try resending
 
 // How often to check disk for a deferred message
 #define POLLER_DEFER_PERIOD 1000000000	// 1 second
