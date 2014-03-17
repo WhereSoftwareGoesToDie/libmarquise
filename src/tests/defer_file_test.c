@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include "../structs.h"
 #include "../defer.h"
 #include "../macros.h"
@@ -20,6 +21,21 @@ void teardown(fixture * f, gconstpointer td)
 {
 	marquise_deferral_file_close(f->df);
 	marquise_deferral_file_free(f->df);
+}
+
+void setup_envvar(fixture *f, gconstpointer td)
+{
+	const char *tmpl = "/tmp/marquise_defer_test";
+	mkdir(tmpl, 0777);
+	setenv("LIBMARQUISE_DEFERRAL_DIR", tmpl, 1);
+	f->df = marquise_deferral_file_new();
+}
+
+void teardown_envvar(fixture *f, gconstpointer td)
+{
+	marquise_deferral_file_close(f->df);
+	marquise_deferral_file_free(f->df);
+	rmdir("/tmp/marquise_defer_test");
 }
 
 void defer_then_read(fixture * f, gconstpointer td)
@@ -88,6 +104,13 @@ void unlink_defer_then_read(fixture * f, gconstpointer td)
 	free_databurst(first_retrieved);
 }
 
+void set_defer_dir(fixture *f, gconstpointer td)
+{
+	const char *tmpl = "/tmp/marquise_defer_test";
+	int d = strncmp(f->df->path, tmpl, strlen(tmpl));
+	g_assert_cmpint(d, ==, 0);
+}
+
 int main(int argc, char **argv)
 {
 	g_test_init(&argc, &argv, NULL);
@@ -97,5 +120,7 @@ int main(int argc, char **argv)
 		   defer_unlink_then_read, teardown);
 	g_test_add("/defer_file/unlink_defer_then_read", fixture, NULL, setup,
 		   unlink_defer_then_read, teardown);
+	g_test_add("/defer_file/set_defer_dir", fixture, NULL, setup_envvar,
+		   set_defer_dir, teardown_envvar);
 	return g_test_run();
 }
