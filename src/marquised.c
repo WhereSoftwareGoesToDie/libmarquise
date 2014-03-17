@@ -7,10 +7,6 @@
  *
  * This isn't required for using vaultaire. User processes can talk
  * directly to the broker if they wish.
- *
- * FIXME:
- * 	* Currently does not honour the origin of the user data
- * 	  and substitutes it's own
  */
 #include <stdio.h>
 #include <stdlib.h>
