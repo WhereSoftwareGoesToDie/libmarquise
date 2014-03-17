@@ -1,6 +1,7 @@
 #include "structs.h"
 #include "macros.h"
 #include "defer.h"
+#include "envvar.h"
 
 #include <sys/stat.h>
 #include <errno.h>
@@ -92,14 +93,16 @@ deferral_file *marquise_deferral_file_new()
 	if (!df)
 		return NULL;
 
-	char *template = "/var/tmp/marquise_defer_file_XXXXXX";
-	char *file_path = malloc(strlen(template) + 1);
+	const char *template = "/marquise_defer_file_XXXXXX";
+	const char *defer_dir = get_deferral_dir();
+	char *file_path = malloc(strlen(template) + strlen(defer_dir) + 1);
 	if (!file_path) {
 		free(df);
 		return NULL;
 	}
 
-	strcpy(file_path, template);
+	strcpy(file_path, defer_dir);
+	strcat(file_path, template);
 	int fd = mkstemp(file_path);
 	if (fd == -1)
 		goto fail_outro;

@@ -8,6 +8,9 @@ typedef void *marquise_connection;
 // environment variable.
 #define COLLATOR_MAX_MESSAGES 4096
 
+// This can be overridden by LIBMARQUISE_DEFERRAL_DIR.
+#define DEFAULT_DEFERRAL_DIR "/var/tmp"
+
 #define COLLATOR_MAX_RX 131072	// 128 KB
 
 // This can't be more than 65535 without changing the msg_id data type of the
