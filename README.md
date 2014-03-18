@@ -36,6 +36,10 @@ The following are optional, and modify default behaviours:
    DataBurst that libmarquise sends).
  - LIBMARQUISE_PROFILING (enable detailed debug output for tracking
    individual dataframes)
+ - LIBMARQUISE_DEFERRAL_DIR is the directory to use for serialization of
+   bursts that have timed out on send - defaults to /var/tmp.
+ - LIBMARQUISE_HIGH_WATER_MARK is the number of bursts which can remain
+   in-flight before being deferred - defaults to 256.
 
 bindings
 ========
