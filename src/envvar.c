@@ -36,3 +36,13 @@ const char *get_deferral_dir()
 	}
 	return dir;
 }
+
+int get_high_water_mark()
+{
+	int v;
+	int ret = get_envvar_int("LIBMARQUISE_HIGH_WATER_MARK", &v);
+	if (ret > 0) {
+		return v;
+	}
+	return POLLER_HIGH_WATER_MARK;
+}

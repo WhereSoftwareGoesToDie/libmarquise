@@ -388,10 +388,10 @@ void *marquise_poller(void *args_p)
 	uint16_t msg_id = 0;
 	poller_args *args = args_p;
 	message_in_flight *in_flight =
-	    calloc(sizeof(message_in_flight), POLLER_HIGH_WATER_MARK);
+	    calloc(sizeof(message_in_flight), get_high_water_mark());
 	message_in_flight *water_mark = in_flight - 1;
 	const message_in_flight const *high_water_mark =
-	    &in_flight[POLLER_HIGH_WATER_MARK - 1];
+	    &in_flight[get_high_water_mark() - 1];
 	int shutting_down = 0;
 	int read_success = 0;
 	zmq_msg_t *deferred_msg = NULL;

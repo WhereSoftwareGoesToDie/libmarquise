@@ -6,9 +6,16 @@
  * errno when it can't find any digits; should check for this condition
  * explicitly. */
 char get_envvar_int(const char *name, int *v);
+
 /* Return the value of LIBMARQUISE_COLLATOR_MAX_MESSAGES if it's set,
  * default to the COLLATOR_MAX_MESSAGES #define if it's not. */
 int get_collator_max_messages();
+
+/* Return the value of LIBMARQUISE_HIGH_WATER_MARK if it's set, default
+ * to the POLLER_HIGH_WATER_MARK #define if it's not.
+ * 
+ * Can't be more than 65535. */
+int get_high_water_mark();
 
 /* Return the value of LIBMARQUISE_DEFERRAL_DIR if it's set, default to
  * the DEFAULT_DEFERRAL_DIR #define if it's not. */
