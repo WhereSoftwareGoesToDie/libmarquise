@@ -33,6 +33,9 @@ typedef void *marquise_connection;
 //
 // Failure almost certainly means catastrophic failure, do not retry on
 // failure, check syslog.
+//
+// marquise_consumer objects are not thread-safe.
+// FIXME: change that.
 marquise_consumer marquise_consumer_new(char *broker, double batch_period);
 
 // Cleanup a consumer's resources. Ensure that you run marquise_close on any
