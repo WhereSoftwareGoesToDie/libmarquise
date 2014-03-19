@@ -23,8 +23,6 @@
 
 #include "telemetry.h"
 
-#define DEBUG_PRINTF	printf
-
 /* Flag to show if telemetry is running or not */
 static volatile int telemetry_running = 0;
 
@@ -67,7 +65,6 @@ uint32_t telemetry_hash(const char *buf, size_t buflen) {
  * aggregator for this thread, it opens one first
  */
 static void telemetry_zmq_send(char *buf, size_t buflen) {
-	DEBUG_PRINTF("telemetry_zmq_send(%s,%lu)\n", buf, buflen);
 	if (thread_telemetry_sock == NULL) {
 		/* Connect to the internal PUB/SUB aggregator */
 		thread_telemetry_sock = zmq_socket((void *)telemetry_context, ZMQ_PUB);
@@ -156,7 +153,6 @@ void * telemetry_thread(void *arg)
  */
 static pthread_t telemetry_pthread;
 int init_telemetry(FILE *telemetryf, char *telemetry_broker_uri, char *client_name) {
-	DEBUG_PRINTF("init_telemetry(%08x,%s,%s)\n",telemetryf, telemetry_broker_uri, client_name);
 	if (telemetryf == NULL && telemetry_broker_uri == NULL) {
 		errno = EINVAL;  /* Need to supply at least one output */
 		return -1;
@@ -197,7 +193,6 @@ int init_telemetry(FILE *telemetryf, char *telemetry_broker_uri, char *client_na
 	return 0;
 }
 void shutdown_telemetry() {
-	DEBUG_PRINTF("shutdown_telemetry()\n");
 	/* Stop more stuff being sent into the telemetry queue */
 	__FENCED__(
 		telemetry_running = 0;
