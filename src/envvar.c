@@ -46,3 +46,13 @@ int get_high_water_mark()
 	}
 	return POLLER_HIGH_WATER_MARK;
 }
+
+int get_deferral_expiry()
+{
+	int v;
+	int ret = get_envvar_int("LIBMARQUISE_POLLER_EXPIRY", &v);
+	if (ret > 0) {
+		return v;
+	}
+	return POLLER_EXPIRY;
+}
