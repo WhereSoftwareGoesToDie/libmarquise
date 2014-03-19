@@ -2,14 +2,14 @@ libmarquise
 ===========
 
 libmarquise is a small C library for writing data frames to
-vaultaire[0]. 
+[vaultaire][0]. 
 
 requirements
 ============
 
- - zeromq[1] 4.0+
- - protobuf[2]
- - protobuf-c[3]
+ - [zeromq][1] 4.0+
+ - [protobuf][2]
+ - [protobuf-c][3]
 
 building
 ========
