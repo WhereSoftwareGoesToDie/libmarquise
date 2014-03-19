@@ -714,8 +714,8 @@ marquise_consumer marquise_consumer_new(char *broker, double poll_period)
 		"zmq_ctx_new failed, this is very confusing.");
 
 #ifdef LIBMARQUISE_PROFILING
-	if (getenv("LIBMARQUISE_PROFILING")) {
-		init_telemetry();
+	if (getenv("LIBMARQUISE_PROFILING") || getenv("LIBMARQUISE_TELEMETRY_DEST")) {
+		init_telemetry(stderr,getenv("LIBMARQUISE_TELEMETRY_DEST"),NULL);
 		telemetry_printf(0, "telemetry starts");
 	}
 #endif
@@ -843,7 +843,7 @@ void marquise_consumer_shutdown(marquise_consumer consumer)
 	zmq_ctx_destroy(consumer);
 
 #ifdef LIBMARQUISE_PROFILING
-	if (getenv("LIBMARQUISE_PROFILING")) {
+	if (getenv("LIBMARQUISE_PROFILING") || getenv("LIBMARQUISE_TELEMETRY_DEST")) {
 		telemetry_printf(0, "telemetry ends");
 		shutdown_telemetry();
 	}
