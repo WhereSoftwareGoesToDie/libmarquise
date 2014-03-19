@@ -40,7 +40,7 @@ static volatile char *telemetry_client_name;
 #define INTERNAL_TELEMETRY_URI	"inproc://marquise_telemetry/"
 #define TELEMETRY_MAX_LINE_LENGTH 1024
 
-#define __FENCE__ __atomic_signal_fence(__ATOMIC_SEQ_CST); __atomic_thread_fence(__ATOMIC_SEQ_CST);
+#define __FENCE__ __sync_synchronize();
 #define __FENCED__(_FENCED_BLOCK) {  __FENCE__ { _FENCED_BLOCK } __FENCE__ }
 
 
