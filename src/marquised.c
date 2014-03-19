@@ -60,7 +60,7 @@ void * start_marquise_poller(void *zmq_context, char *broker_socket_address) {
 	/* connect to broker */
 	pargs->upstream_sock = zmq_socket(zmq_context, ZMQ_DEALER);
 	if (zmq_connect(pargs->upstream_sock, broker_socket_address)) 
-		return perror("zmq_bind"), NULL;
+		return perror("zmq_connect"), NULL;
 
 	/* no idea why we're the ones opening the deferral file */
 	pargs->deferral_file = marquise_deferral_file_new();
@@ -94,7 +94,7 @@ static void shutdown_marquise_poller(void *zmq_context, void *poller_ipc_sock) {
 	do {
 		ret = zmq_recvmsg(poller_ipc_sock, &ack, 0);
 	} while (ret == -1 && errno == EINTR);
-	if (ret == -1) { perror("zmq_send"); return; }
+	if (ret == -1) { perror("zmq_recvmsg"); return; }
 	zmq_msg_close(&ack);
 
 	/* Poller is done. Cleanup our end of the socket */
