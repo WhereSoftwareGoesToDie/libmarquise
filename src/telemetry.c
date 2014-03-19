@@ -16,6 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stdlib.h>
 #include <time.h>
 #include <pthread.h>
 
