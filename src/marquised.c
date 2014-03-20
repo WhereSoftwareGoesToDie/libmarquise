@@ -179,6 +179,11 @@ int main(int argc, char **argv) {
 	 */
 	verbose_printf("binding listen socket to %s\n", zmq_listen_address);
 	zmq_listen_sock = zmq_socket(zmq_context, ZMQ_ROUTER);
+	/* It's quite bad if sends to the marquised listen socket block,
+         * so we set the HWM to be unlimited. */
+	int listen_hwm = 0;
+	zmq_setsockopt(zmq_listen_sock, ZMQ_RCVHWM, (void*)&listen_hwm, sizeof(int));
+	zmq_setsockopt(zmq_listen_sock, ZMQ_SNDHWM, (void*)&listen_hwm, sizeof(int));
 	if (zmq_bind(zmq_listen_sock, zmq_listen_address)) 
 		return perror("zmq_bind"), 1;
 	signal(SIGTERM, handle_exit_signal);
