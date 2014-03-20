@@ -58,6 +58,21 @@ static void debug_log(char *format, ...)
 #define DUMP_PROFILE_COUNTERS
 #endif
 
+// Check if writing to a zmq socket will block
+static int write_would_block(void *socket) {
+	zmq_pollitem_t items[1];
+	int ret;
+
+	items[0].socket = socket;
+	items[0].events = ZMQ_POLLOUT;
+	errno = 0;
+	do { ret = zmq_poll(items, 1, 0); }
+	while (errno == EINTR);
+	if (ret < 1) return 1;
+	return !(items[0].revents | ZMQ_POLLOUT);
+}
+
+
 static frame *accumulate_databursts(gpointer zmq_message, gint * queue_length)
 {
 	static frame *accumulator;
@@ -169,6 +184,11 @@ static void send_message_list(GSList * message_list, void *destination_sock)
 	uint32_t burst_hash = telemetry_hash((char *)burst->data, burst->length);
 	telemetry_printf(burst_hash, "collator_thread created_databurst frames = %d compressed_bytes = %d", list_length, burst->length);
 
+	if (write_would_block(destination_sock)) {
+		/* Can't drop it on the floor, but we can at least warn this is blocking
+		 */
+		debug_log("WARN: collator_thread->poller_thread socket is blocking\n");
+	}
 	int ret;
 	do {
 		ret = zmq_send(destination_sock, burst->data, burst->length, 0);
@@ -465,7 +485,8 @@ void *marquise_poller(void *args_p)
 		// Check if we need to get a deferred message
 		deferred_msg = NULL;
 		if ((defer_expiry < now || shutting_down)
-		    && water_mark != high_water_mark) {
+		    && (water_mark != high_water_mark)
+		    && (!write_would_block(args->upstream_sock))) {
 			deferred_msg = retrieve_msg(args->deferral_file);
 			if (deferred_msg == NULL) {
 				// Terminating case for shutdown, the disk
@@ -481,6 +502,7 @@ void *marquise_poller(void *args_p)
 				defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD;
 			} else {
 				read_success = 1;
+				assert(shutting_down || defer_expiry < now);
 				INC_COUNTER(messages_read_from_disk);
 				telemetry_printf(MSG_HASH(deferred_msg),
 						"poller_thread read_from_disk");
@@ -525,7 +547,11 @@ void *marquise_poller(void *args_p)
 				msg = deferred_msg;
 			}
 
-			if (water_mark < high_water_mark) {
+			/* iff we have free outbound slots and the internal zmq queue is not
+			 * full, send the message inflight
+			 */
+			int writes_blocked = write_would_block(args->upstream_sock);
+			if ((water_mark < high_water_mark) && !writes_blocked) {
 				debug_log
 				    ("Poller sending message, free slots: %d / %d\n",
 				     high_water_mark - water_mark,
@@ -548,6 +574,8 @@ void *marquise_poller(void *args_p)
 
 #define TRANSMIT_CLEANUP {                     \
                                         defer_msg( msg, args->deferral_file ); \
+					telemetry_printf(MSG_HASH(msg), "poller_thread defer_to_disk error_on_send broker_socket"); \
+					defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD; \
                                         zmq_msg_close( msg );                  \
                                         zmq_msg_close( &water_mark->msg );     \
                                         free( msg );                           \
@@ -558,8 +586,7 @@ void *marquise_poller(void *args_p)
 				do {
 					tx = zmq_send(args->upstream_sock,
 						      (void *)&msg_id,
-						      sizeof(msg_id)
-						      , ZMQ_SNDMORE);
+						      sizeof(msg_id) , ZMQ_SNDMORE);
 				} while (tx == -1 && errno == EINTR);
 
 				debug_log
@@ -592,9 +619,22 @@ void *marquise_poller(void *args_p)
 				// Defer to disk as there are already too many
 				// messages in flight.
 				defer_msg(msg, args->deferral_file);
-				telemetry_printf(MSG_HASH(msg),
-						"poller_thread defer_to_disk"
-						" too_many_inflight");
+				if ((water_mark < high_water_mark) && writes_blocked) {
+					telemetry_printf(MSG_HASH(msg),
+							"poller_thread defer_to_disk"
+							" socket_to_broker_blocked");
+					// 0mq writes being blocked to the
+					// broker is effectively a temporary
+					// socket error state. Defer reads
+					// from disk temporarily so we don't
+					// spin cycling stuff to disk and back
+					defer_expiry = timestamp_now() + POLLER_DEFER_PERIOD;
+				}
+				else {
+					telemetry_printf(MSG_HASH(msg),
+							"poller_thread defer_to_disk"
+							" too_many_inflight");
+				}
 				zmq_msg_close(msg);
 				INC_COUNTER(messages_deferred_to_disk);
 			}
@@ -746,6 +786,13 @@ marquise_consumer marquise_consumer_new(char *broker, double poll_period)
 	NEW_SOCKET(upstream_dealer_socket, ZMQ_DEALER);
 	NEW_SOCKET(collator_ipc_rep_socket, ZMQ_REP);
 
+	/* User of libmarquise should never have to block on writes if
+	 * possible. Switch off the hwm for collator just in case
+	 * grow frames in memory  */
+	int collator_pull_hwm = 0;
+	if (zmq_setsockopt(collator_pull_socket, ZMQ_RCVHWM, &collator_pull_hwm, sizeof(int))) 
+		debug_log("Couldn't set infinite HWM on socket from user to collator. Uhoh.");
+
 	SOCKET_ACTION(zmq_bind, collator_pull_socket, "inproc://collator");
 	SOCKET_ACTION(zmq_bind, collator_ipc_rep_socket,
 		      "inproc://collator_ipc");
@@ -860,6 +907,11 @@ marquise_connection marquise_connect(marquise_consumer consumer)
 	void *connection = zmq_socket(consumer, ZMQ_PUSH);
 	conn_fail_if(!connection, "marquise_connect: zmq_socket: '%s'",
 		     strerror(errno));
+
+	int connection_hwm = 0;
+	if (zmq_setsockopt(connection, ZMQ_SNDHWM, &connection_hwm, sizeof(int)))
+		debug_log("marquise_connect: Couldn't set infinite HWM on socket from user to collator. Uhoh.");
+
 	conn_fail_if(zmq_connect(connection, "inproc://collator")
 		     , "marquise_connect: zmq_connect: '%s'", strerror(errno));
 	return connection;
@@ -880,7 +932,7 @@ int marquise_send_frame(marquise_connection connection, DataFrame * frame)
 	data_frame__pack(frame, marshalled_frame);
 	free_frame(frame);
 
-	int ret, ackret;
+	int ret;
 	do {
 		ret = zmq_send(connection, marshalled_frame, length, 0);
 	} while (ret == -1 && errno == EINTR);
