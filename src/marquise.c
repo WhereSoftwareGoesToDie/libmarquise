@@ -540,7 +540,7 @@ void *marquise_poller(void *args_p)
 
 				// Set time sent as now
 				water_mark->expiry =
-				    timestamp_now() + POLLER_EXPIRY;
+				    timestamp_now() + get_poller_expiry();
 
 				// Tack on our message id;
 				msg_id++;

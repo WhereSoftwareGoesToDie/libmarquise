@@ -20,3 +20,7 @@ int get_high_water_mark();
 /* Return the value of LIBMARQUISE_DEFERRAL_DIR if it's set, default to
  * the DEFAULT_DEFERRAL_DIR #define if it's not. */
 const char *get_deferral_dir();
+
+/* Return the value of LIBMARQUISE_POLLER_EXPIRY if it's set, default to
+ * the POLLER_EXPIRY #define if it's not. */
+unsigned long long get_poller_expiry();

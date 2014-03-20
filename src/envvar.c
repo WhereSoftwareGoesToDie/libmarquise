@@ -18,6 +18,20 @@ char get_envvar_int(const char *name, int *v)
 	return 1;
 }
 
+char get_envvar_ull(const char *name, unsigned long long *v)
+{
+	char *var = getenv(name);
+	if (!var) {
+		return 0;
+	}
+	errno = 0;
+	*v = strtoull(var, NULL, 10);
+	if (errno != 0 || *v == 0) {
+		return -1;
+	}
+	return 1;
+}
+
 int get_collator_max_messages()
 {
 	int v;
@@ -45,4 +59,14 @@ int get_high_water_mark()
 		return v;
 	}
 	return POLLER_HIGH_WATER_MARK;
+}
+
+unsigned long long get_poller_expiry()
+{
+	unsigned long long v;
+	int ret = get_envvar_ull("LIBMARQUISE_POLLER_EXPIRY", &v);
+	if (ret > 0) {
+		return v;
+	}
+	return POLLER_EXPIRY;
 }
