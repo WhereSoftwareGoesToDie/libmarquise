@@ -885,14 +885,6 @@ int marquise_send_frame(marquise_connection connection, DataFrame * frame)
 		ret = zmq_send(connection, marshalled_frame, length, 0);
 	} while (ret == -1 && errno == EINTR);
 
-	zmq_msg_t ack;
-	zmq_msg_init(&ack);
-	do {
-		ackret = zmq_msg_recv(&ack, connection, 0);
-	} while (ackret == -1 && errno == EINTR);
-
-	zmq_msg_close(&ack);
-
 	free(marshalled_frame);
 	return ret;
 }
