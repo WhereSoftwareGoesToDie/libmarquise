@@ -1,4 +1,4 @@
-AM_CFLAGS  = -pthread -Wall $(GLIB_2_CFLAGS) # $(PROTOBUF_C_CFLAGS)
+AM_CFLAGS  = -pthread -Wall $(GLIB_2_CFLAGS) # $(PROTOBUF_C_CFLAGS) -g
 AM_LDFLAGS = $(GLIB_2_LIBS) -lprotobuf-c -pthread # $(PROTOBUF_C_LIBS) -- debian bug #731726
 
 lib_LTLIBRARIES = libmarquise.la
@@ -29,13 +29,16 @@ dist_noinst_HEADERS = defer.h \
 
 dist_noinst_DATA = lz4/*.c lz4/*.h
 
-bin_PROGRAMS = marquise marquised
+bin_PROGRAMS = marquise marquised marquise_process_deferrals
 
 marquise_SOURCES = bin/marquise.c
 marquise_LDADD = libmarquise.la
 
 marquised_SOURCES = marquised.c
 marquised_LDADD = libmarquise.la
+
+marquise_process_deferrals_SOURCES = marquise_process_deferrals.c
+marquise_process_deferrals_LDADD = libmarquise.la
 
 %.pb-c.c %.pb-c.h: %.proto
 	    $(PROTOC_C) --proto_path=$(srcdir)/protobuf --c_out=$(builddir)/protobuf $^

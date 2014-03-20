@@ -4,6 +4,7 @@
 #include "envvar.h"
 
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,6 +23,8 @@
                  free( new );                                           \
                , "marquise_defer_to_file recovered: %s", strerror( errno ) ); \
         } while( 0 )
+
+const char *const deferral_file_template = "/marquise_defer_file_XXXXXX";
 
 void marquise_defer_to_file(deferral_file * df, data_burst * burst)
 {
@@ -93,7 +96,7 @@ deferral_file *marquise_deferral_file_new()
 	if (!df)
 		return NULL;
 
-	const char *template = "/marquise_defer_file_XXXXXX";
+	const char *template = deferral_file_template;
 	const char *defer_dir = get_deferral_dir();
 	char *file_path = malloc(strlen(template) + strlen(defer_dir) + 1);
 	if (!file_path) {
@@ -107,6 +110,9 @@ deferral_file *marquise_deferral_file_new()
 	if (fd == -1)
 		goto fail_outro;
 
+	bail_if (flock(fd, LOCK_EX | LOCK_NB) != 0,);
+	
+	df->fd = fd;	
 	df->path = file_path;
 	df->stream = fdopen(fd, "w+");
 	if (!df->stream)
@@ -128,6 +134,7 @@ int marquise_deferral_file_close(deferral_file * df)
 
 void marquise_deferral_file_free(deferral_file * df)
 {
+	flock(df->fd, LOCK_UN);
 	free(df->path);
 	free(df);
 }

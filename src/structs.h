@@ -4,9 +4,13 @@
 #include <glib.h>
 #include <zmq.h>
 
+#ifndef H_MARQUISE_STRUCTS
+#define H_MARQUISE_STRUCTS
+
 typedef struct {
 	char *path;
 	FILE *stream;
+	int fd;
 } deferral_file;
 
 typedef struct {
@@ -37,3 +41,5 @@ typedef struct {
 	uint8_t *data;
 	size_t length;
 } frame;
+
+#endif
