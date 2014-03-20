@@ -21,6 +21,7 @@
 
 #include "structs.h"
 #include "defer.h"
+#include "telemetry.h"
 
 #define DEFAULT_LISTEN_ADDRESS	"tcp://127.0.0.1:5560/"
 #define POLLER_IPC_ADDRESS	"inproc://poller"
@@ -145,10 +146,23 @@ int main(int argc, char **argv) {
 	} else {
 		zmq_listen_address = DEFAULT_LISTEN_ADDRESS;
 	}
+
+	/* Switch on telemetry
+	 * We'll use the id 'marquised:<hostname>'
+	 * Will connect upstream iff LIBMARQUISE_TELEMETRY_DEST environ is set
+	 */
+	char telemetry_id[512];
+	strcpy(telemetry_id, "marquised:");
+	gethostname(((char *)telemetry_id)+10, 502);
+	telemetry_id[511]=0;
+	if (init_telemetry(verbose ? stderr : NULL,
+			getenv("LIBMARQUISE_TELEMETRY_DEST"),
+			telemetry_id) < 0) {
+		perror("init_telemetry"); // Non-fatal
+	}
 		
 	/* Kick off zmq */
 	zmq_context = zmq_ctx_new();
-
 	/*
 	 * Set up libmarquis' poller component to talk to the broker and
 	 * deal with retries / disk deferral etc.
@@ -167,7 +181,6 @@ int main(int argc, char **argv) {
 	zmq_listen_sock = zmq_socket(zmq_context, ZMQ_ROUTER);
 	if (zmq_bind(zmq_listen_sock, zmq_listen_address)) 
 		return perror("zmq_bind"), 1;
-
 	signal(SIGTERM, handle_exit_signal);
 	signal(SIGHUP, handle_exit_signal);
 	signal(SIGINT, handle_exit_signal);
@@ -297,5 +310,7 @@ int main(int argc, char **argv) {
 
 	}
 	marquised_shutdown(zmq_context, poller_ipc_socket, zmq_listen_sock);
+	shutdown_telemetry();
+
 	return 0;
 }
