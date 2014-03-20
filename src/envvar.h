@@ -23,4 +23,4 @@ const char *get_deferral_dir();
 
 /* Return the value of LIBMARQUISE_POLLER_EXPIRY if it's set, default to
  * the POLLER_EXPIRY #define if it's not. */
-int get_deferral_expiry();
+unsigned long long get_poller_expiry();
