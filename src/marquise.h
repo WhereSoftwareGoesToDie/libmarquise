@@ -52,7 +52,7 @@ void marquise_close(marquise_connection connection);
 // on zmq_send_msg. This will probably only ever fail if you provide an invalid
 // connection.
 
-// Type: TEXT
+// Type: TEXT - all text is treated as UTF-8. 
 int marquise_send_text(marquise_connection connection, char **source_fields,
 		       char **source_values, size_t source_count, char *data,
 		       size_t length
