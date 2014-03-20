@@ -34,8 +34,14 @@ The following are optional, and modify default behaviours:
    be written in order to force collation and sending; consequently,
    this is the maximum number of DataFrames which will be encoded in the
    DataBurst that libmarquise sends).
- - LIBMARQUISE_PROFILING (enable detailed debug output for tracking
-   individual dataframes)
+ - LIBMARQUISE_TELEMETRY_DEST (connect to a broker at this endpoint 
+   and send telemetry tracking data from when given to marquise to when
+   acked by vaultaire. This allows more detailed performance and health 
+   information to be available across the entire vaultaire system.
+   This has little or no impact on performance or resource usage.
+   e.g. tcp://broker.example:5583/
+ - LIBMARQUISE_PROFILING (enable telemetry data to be sent to stderr.
+   See LIBMARQUISE_TELEMETRY_DEST)
  - LIBMARQUISE_DEFERRAL_DIR is the directory to use for serialization of
    bursts that have timed out on send - defaults to /var/tmp.
  - LIBMARQUISE_HIGH_WATER_MARK is the number of bursts which can remain
