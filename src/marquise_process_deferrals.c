@@ -159,7 +159,6 @@ void process_defer_file(char *path)
 	}
 	printf("Retrieved %d bursts from %s.\n", retrieved, path);
 		
-defer_file_cleanup:
 	marquise_deferral_file_close(df);
 	marquise_deferral_file_free(df);
 }
