@@ -555,7 +555,7 @@ void *marquise_poller(void *args_p)
 				debug_log
 				    ("Poller sending message, free slots: %d / %d\n",
 				     high_water_mark - water_mark,
-				     high_water_mark - in_flight);
+				     high_water_mark - in_flight + 1);
 
 				// Move our water mark to the next avaliable slot
 				water_mark++;
