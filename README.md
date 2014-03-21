@@ -53,8 +53,15 @@ bindings
  - go: https://github.com/anchor/gomarquise
  - haskell: https://github.com/anchor/marquise-haskell
 
+packages
+========
+
+There are source packages available for Centos/RHEL and Debian
+[here][4]. 
+
 [0]: https://github.com/anchor/vaultaire
 [1]: http://zeromq.org/
 [2]: https://code.google.com/p/protobuf/
 [3]: https://code.google.com/p/protobuf-c/
+[4]: https://github.com/anchor/packages
 
