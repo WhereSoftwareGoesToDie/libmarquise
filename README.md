@@ -52,6 +52,7 @@ bindings
 
  - go: https://github.com/anchor/gomarquise
  - haskell: https://github.com/anchor/marquise-haskell
+ - Ruby: https://github.com/mpalmer/marquise-ruby (`gem install marquise`)
 
 packages
 ========
