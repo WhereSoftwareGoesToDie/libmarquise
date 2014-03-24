@@ -18,6 +18,8 @@ typedef void *marquise_connection;
 #define POLLER_HIGH_WATER_MARK 256
 
 // Microseconds till a message expires
+// This can be overridden by the LIBMARQUISE_POLLER_EXPIRY environment
+// variable.
 #define POLLER_EXPIRY 600000000000	// 10 minutes till we try resending
 
 // How often to check disk for a deferred message

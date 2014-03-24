@@ -40,6 +40,8 @@ The following are optional, and modify default behaviours:
    information to be available across the entire vaultaire system.
    This has little or no impact on performance or resource usage.
    e.g. tcp://broker.example:5583/
+ - LIBMARQUISE_POLLER_EXPIRY (amount of time (nanoseconds) to wait for
+   an ack back from Vaultaire - defaults to ten minutes). 
  - LIBMARQUISE_PROFILING (enable telemetry data to be sent to stderr.
    See LIBMARQUISE_TELEMETRY_DEST)
  - LIBMARQUISE_DEFERRAL_DIR is the directory to use for serialization of
