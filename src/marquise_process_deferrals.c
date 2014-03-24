@@ -105,9 +105,9 @@ void send_burst(void *zmq_ctx, void *poller_sock, data_burst *burst) {
 	zmq_msg_close(&ack);
 }
 
-void process_defer_file(char *path) 
+void process_defer_file(char *path, void *zmq_ctx, void *poller_sock) 
 {
-	int fd = open(path, O_RDONLY);
+	int fd = open(path, O_RDWR);
 	if (fd == -1) {
 		fprintf(stderr, "Could not open %s.\n", path);
 		return;
@@ -136,7 +136,7 @@ void process_defer_file(char *path)
 	}
 	// Of nonzero size and not locked, so we retry it
 	printf("Retrying %s...\n", path);
-	FILE *fi = fdopen(fd, "r");
+	FILE *fi = fdopen(fd, "r+");
 	if (fi == NULL) {
 		perror("fdopen");
 		flock(fd, LOCK_UN);
@@ -150,12 +150,12 @@ void process_defer_file(char *path)
 	data_burst *burst;
 	int retrieved = 0;
 	for (;;) {
-		printf("fd: %d\n", df->fd);
 		burst = marquise_retrieve_from_file(df);
 		if (!burst) {
 			break;
 		}
 		retrieved++;
+		send_burst(zmq_ctx, poller_sock, burst);
 	}
 	printf("Retrieved %d bursts from %s.\n", retrieved, path);
 		
@@ -204,7 +204,7 @@ int main(int argc, char **argv)
 		path[defer_dir_len] = '/';
 		path[defer_dir_len + 1] = '\0';
 		strncat(path, entry->d_name, name_len);
-		process_defer_file(path);
+		process_defer_file(path, zmq_ctx, poller_sock);
 		free(path);
 	}
 	free(defer_prefix);

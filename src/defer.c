@@ -34,6 +34,7 @@ void marquise_defer_to_file(deferral_file * df, data_burst * burst)
 	recover_if(!fwrite(burst->data, burst->length, 1, df->stream));
 	recover_if(!fwrite
 		   (&burst->length, sizeof(burst->length), 1, df->stream));
+	fflush(df->stream);
 }
 
 // Just log, return NULL and get on with your life.
@@ -52,8 +53,9 @@ data_burst *marquise_retrieve_from_file(deferral_file * df)
 
 	// Empty file means no bursts left.
 	bail_if(fseek(df->stream, 0, SEEK_END),);
-	if (ftell(df->stream) <= 0)
+	if (ftell(df->stream) <= 0) {
 		return NULL;
+	}
 
 	size_t length;
 	// Grab the length of the burst from the end of the file
