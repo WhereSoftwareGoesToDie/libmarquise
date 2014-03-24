@@ -109,7 +109,7 @@ void process_defer_file(char *path, void *zmq_ctx, void *poller_sock)
 {
 	int fd = open(path, O_RDWR);
 	if (fd == -1) {
-		fprintf(stderr, "Could not open %s.\n", path);
+		fprintf(stderr, "Could not open %s: %s.\n", path, strerror(errno));
 		return;
 	}
 	if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
