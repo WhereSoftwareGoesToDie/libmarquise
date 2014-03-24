@@ -90,9 +90,11 @@ void send_burst(void *zmq_ctx, void *poller_sock, data_burst *burst) {
 		ret = zmq_send(poller_sock, burst->data, burst->length, 0);
 	} while (ret == -1 && errno == EINTR);
 	if (ret == -1) {
+		free_databurst(burst);
 		perror("zmq_sendmsg");
 		return;
 	}
+	free_databurst(burst);
 	zmq_msg_t ack;
 	zmq_msg_init(&ack);
 	do {
