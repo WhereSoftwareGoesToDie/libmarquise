@@ -1,0 +1,48 @@
+marquised(8) -- daemon for aggregating and sending data to Vaultaire
+====================================================================
+
+## SYNOPSIS
+
+`marquised` <upstream-broker-socket> [ <listen-socket-address> ]
+
+
+## DESCRIPTION
+
+marquised is a daemon which sits between libmarquise and Chateau,
+usually local to libmarquise. It will acknowledge writes coming in so
+libmarquise's writer threads can terminate and the collector can shut
+down regardless of Vaultaire's availability or load.
+
+
+marquised uses the libmarquise event loop; see the libmarquise
+documentation for low-level details.
+
+
+## ENVIRONMENT VARIABLES
+
+Like libmarquise, marquised respects the following environment
+variables: 
+
+ * LIBMARQUISE_ORIGIN (origin value for Vaultaire, required)
+
+The following are optional, and modify default behaviours:
+
+ * LIBMARQUISE_DEBUG (enable debug output)
+ * LIBMARQUISE_COLLATOR_MAX_MESSAGES (the number of messages that must
+   be written in order to force collation and sending; consequently,
+   this is the maximum number of DataFrames which will be encoded in the
+   DataBurst that libmarquise sends).
+ * LIBMARQUISE_TELEMETRY_DEST (connect to a broker at this endpoint 
+   and send telemetry tracking data from when given to marquise to when
+   acked by vaultaire. This allows more detailed performance and health 
+   information to be available across the entire vaultaire system.
+   This has little or no impact on performance or resource usage.
+   e.g. tcp://broker.example:5583/
+ * LIBMARQUISE_POLLER_EXPIRY (amount of time (nanoseconds) to wait for
+   an ack back from Vaultaire - defaults to ten minutes). 
+ * LIBMARQUISE_PROFILING (enable telemetry data to be sent to stderr.
+   See LIBMARQUISE_TELEMETRY_DEST)
+ * LIBMARQUISE_DEFERRAL_DIR is the directory to use for serialization of
+   bursts that have timed out on send - defaults to /var/tmp.
+ * LIBMARQUISE_HIGH_WATER_MARK is the number of bursts which can remain
+   in-flight before being deferred - defaults to 256.
