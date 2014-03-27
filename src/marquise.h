@@ -53,6 +53,10 @@ void marquise_close(marquise_connection connection);
 // Returns 0 on success, -1 on failure, setting errno. Will only possibly fail
 // on zmq_send_msg. This will probably only ever fail if you provide an invalid
 // connection.
+//
+// Failure cases:
+//
+// - will set EINVAL if the LIBMARQUISE_ORIGIN environment variable is not set.
 
 // Type: TEXT - all text is treated as UTF-8. 
 int marquise_send_text(marquise_connection connection, char **source_fields,
