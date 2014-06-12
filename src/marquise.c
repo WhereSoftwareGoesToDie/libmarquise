@@ -13,6 +13,7 @@ uint8_t valid_namespace(char *namespace) {
 			(namespace[i] < '0' || namespace[i] > '9')
 		) {
 			return 0;
+		}
 	}
 	return 1;
 }
