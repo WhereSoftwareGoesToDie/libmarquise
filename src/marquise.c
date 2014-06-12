@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "siphash24.h"
+
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
  * return 0. */
 uint8_t valid_namespace(char *namespace) {
