@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
+#include <stdlib.h>
 
 #include "siphash24.h"
 #include "marquise.h"
@@ -39,6 +41,25 @@ uint64_t hash_identifier(const unsigned char *id, size_t id_len) {
 	return siphash(id, id_len, key);
 }
 
-int send_simple(marquise_context *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
+marquise_ctx *marquise_init(char *marquise_namespace) {
+	marquise_ctx *ctx = malloc(sizeof(marquise_ctx));
+	if (ctx == NULL) {
+		return NULL;
+	}
+	if (!valid_namespace(marquise_namespace)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	const char *spool_prefix = MARQUISE_SPOOL_PREFIX;
+	size_t prefix_len = strlen(spool_prefix);
+	size_t ns_len = strlen(marquise_namespace);
+	char *spool_path = malloc(prefix_len + ns_len + 1);
+	strncpy(spool_path, spool_prefix, prefix_len);
+	strncpy(spool_path+prefix_len, marquise_namespace, ns_len+1);
+	ctx->spool = fopen(spool_path, "a");
+	free(spool_path);
+}
+
+int send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
 	return 0;
 }
