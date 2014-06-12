@@ -32,7 +32,7 @@ uint8_t valid_namespace(char *namespace) {
 	return 1;
 }
 
-uint64_t hash_identifier(const unsigned char *id, size_t id_len) {
+uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len) {
 	int i;
 	unsigned char key[16];
 	for (i=0; i < 16; i++) {
@@ -60,6 +60,6 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 	free(spool_path);
 }
 
-int send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
+int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
 	return 0;
 }
