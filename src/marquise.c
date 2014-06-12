@@ -46,7 +46,9 @@ uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len) {
 	for (i=0; i < 16; i++) {
 		key[i] = 0;
 	}
-	return siphash(id, id_len, key);
+	uint64_t hash = siphash(id, id_len, key);
+	// Clear the LSB because it's used for simple vs. extended metadata.
+	return hash & 0x1111111111111110;
 }
 
 marquise_ctx *marquise_init(char *marquise_namespace) {
