@@ -16,6 +16,14 @@
 #include "siphash24.h"
 #include "marquise.h"
 
+#define U32TO8_LE(p, v)         \
+  (p)[0] = (uint8_t)((v)      ); (p)[1] = (uint8_t)((v) >>  8); \
+(p)[2] = (uint8_t)((v) >> 16); (p)[3] = (uint8_t)((v) >> 24);
+
+#define U64TO8_LE(p, v)         \
+  U32TO8_LE((p),     (uint32_t)((v)      ));   \
+U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
+
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
  * return 0. */
 uint8_t valid_namespace(char *namespace) {
@@ -66,6 +74,13 @@ int marquise_flush(marquise_ctx *ctx) {
 }
 
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
+	uint8_t buf[24];
+	U64TO8_LE(buf, address);
+	U64TO8_LE(buf+8, timestamp);
+	U64TO8_LE(buf+16, value);
+	if (fwrite((void*)buf, 1, 24, ctx->spool) != 24) {
+		return -1;
+	}
 	return 0;
 }
 
