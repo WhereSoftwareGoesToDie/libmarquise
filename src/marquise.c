@@ -61,7 +61,7 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 		return NULL;
 	}
 	const char *spool_prefix = MARQUISE_SPOOL_PREFIX;
-	size_t prefix_len = strlen(spool_prefix);
+	size_t prefix_len = sizeof(MARQUISE_SPOOL_PREFIX);
 	size_t ns_len = strlen(marquise_namespace);
 	char *spool_path = malloc(prefix_len + ns_len + 1);
 	strncpy(spool_path, spool_prefix, prefix_len);
