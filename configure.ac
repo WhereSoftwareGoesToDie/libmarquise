@@ -10,21 +10,6 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 
 PKG_CHECK_MODULES([GLIB_2], [glib-2.0 >= 2.5])
-# Debian bug #731726, :(, hard coded for now.
-# PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.1])
-AC_SUBST(PROTOBUF_LIBS)
-AC_SUBST(PROTOBUF_CFLAGS)
-AC_SUBST(PROTOBUF_VERSION)
-
-AC_CHECK_FILE([Bootstrap])
-if test "$ac_cv_file_Bootstrap" == yes ; then
-	AC_CHECK_PROG([PROTOC_C], [protoc-c], [protoc-c])
-	AS_IF([test "x${PROTOC-C}" == "x"],
-		  [AC_MSG_ERROR([ProtoBuf compiler "protoc-c" not found.])])
-
-fi
-
-AC_CHECK_LIB([zmq], [zmq_connect])
 
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h syslog.h unistd.h])
 
