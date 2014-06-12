@@ -1,5 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = src doc/man
+SUBDIRS = src
 dist_doc_DATA = README
 
 test: check
