@@ -6,8 +6,6 @@ libmarquise_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:0:0
 libmarquise_la_SOURCES = marquise.c 
 include_HEADERS = marquise.h
 
-bin_PROGRAMS = marquise
-
 indent: *.c *.h bin/*.c tests/*.c
 	indent -linux $^
 	rm $(foreach input,$^,$(input)~)
