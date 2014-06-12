@@ -1,5 +1,7 @@
 language: c
 install:
+  - sudo apt-get install -y rubygems
+  - gem install ronn
   - autoreconf -i
 script:
   - ./configure && make && make check
