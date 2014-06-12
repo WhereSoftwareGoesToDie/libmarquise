@@ -30,6 +30,7 @@ U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
  * return 0. */
 uint8_t valid_namespace(char *namespace) {
 	size_t len = strlen(namespace);
+	int i;
 	for (i = 0; i < len; i++) {
 		if (
 			((namespace[i] | 32) < 'a' || (namespace[i] | 32) > 'z') && 
