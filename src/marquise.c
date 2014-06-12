@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "siphash24.h"
+#include "marquise.h"
 
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
  * return 0. */
@@ -37,4 +38,7 @@ uint64_t hash_identifier(const unsigned char *id, size_t id_len) {
 	}
 	return siphash(id, id_len, key);
 }
-	
+
+int send_simple(marquise_context *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
+	return 0;
+}

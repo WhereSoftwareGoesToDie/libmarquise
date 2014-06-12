@@ -9,4 +9,16 @@
 
 #include <stdint.h>
 
+typedef struct {
+	char *marquise_namespace;
+	FILE *spool;
+} marquise_context;
 
+/* Return the SipHash-2-4[0] of an array of bytes, suitable to use as an 
+ * address. */
+uint64_t hash_identifier(const unsigned char *id, size_t id_len);
+
+marquise_context *marquise_init(char *marquise_namespace);
+
+int send_simple(marquise_context *ctx, uint64_t address, uint64_t timestamp, uint64_t value);
+		
