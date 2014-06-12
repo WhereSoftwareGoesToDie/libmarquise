@@ -4,7 +4,7 @@
 
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
  * return 0. */
-uint8_t valid_namespace(char **namespace) {
+uint8_t valid_namespace(char *namespace) {
 	size_t len = strlen(namespace);
 	int i;
 	for (i = 0; i < len; i++) {
