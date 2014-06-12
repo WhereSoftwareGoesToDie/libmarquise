@@ -9,7 +9,7 @@ uint8_t valid_namespace(char *namespace) {
 	int i;
 	for (i = 0; i < len; i++) {
 		if (
-			(namespace[i] | 32 < 'a' || namespace[i] | 32 > 'z') && 
+			((namespace[i] | 32) < 'a' || (namespace[i] | 32) > 'z') && 
 			(namespace[i] < '0' || namespace[i] > '9')
 		) {
 			return 0;
