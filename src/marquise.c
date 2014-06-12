@@ -43,9 +43,7 @@ uint8_t valid_namespace(char *namespace) {
 uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len) {
 	int i;
 	unsigned char key[16];
-	for (i=0; i < 16; i++) {
-		key[i] = 0;
-	}
+	memset(key, 0, 16);
 	uint64_t hash = siphash(id, id_len, key);
 	// Clear the LSB because it's used for simple vs. extended metadata.
 	return hash & 0x1111111111111110;
