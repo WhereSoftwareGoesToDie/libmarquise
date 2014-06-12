@@ -16,10 +16,12 @@
 #include "siphash24.h"
 #include "marquise.h"
 
+/* Write the 32-bit value in v to the byte array p. */
 #define U32TO8_LE(p, v)         \
   (p)[0] = (uint8_t)((v)      ); (p)[1] = (uint8_t)((v) >>  8); \
 (p)[2] = (uint8_t)((v) >> 16); (p)[3] = (uint8_t)((v) >> 24);
 
+/* Write the 64-bit value in v to the byte array p. */
 #define U64TO8_LE(p, v)         \
   U32TO8_LE((p),     (uint32_t)((v)      ));   \
 U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
