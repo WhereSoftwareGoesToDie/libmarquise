@@ -12,4 +12,6 @@
    this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-int  siphash( unsigned char *out, const unsigned char *in, unsigned long long inlen, const unsigned char *k );
+#include <stdint.h>
+
+uint64_t siphash(const unsigned char *in, unsigned long long inlen, const unsigned char *k );

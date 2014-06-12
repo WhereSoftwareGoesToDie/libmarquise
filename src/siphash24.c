@@ -50,7 +50,7 @@ U32TO8_LE((p) + 4, (u32)((v) >> 32));
   } while(0)
 
 /* SipHash-2-4 */
-int  siphash( unsigned char *out, const unsigned char *in, unsigned long long inlen, const unsigned char *k )
+uint64_t siphash(const unsigned char *in, unsigned long long inlen, const unsigned char *k )
 {
   /* "somepseudorandomlygeneratedbytes" */
   u64 v0 = 0x736f6d6570736575ULL;
@@ -129,7 +129,6 @@ int  siphash( unsigned char *out, const unsigned char *in, unsigned long long in
   for( i=0; i<dROUNDS; ++i ) SIPROUND;
 
   b = v0 ^ v1 ^ v2  ^ v3;
-  U64TO8_LE( out, b );
-  return 0;
+  return b;
 }
 
