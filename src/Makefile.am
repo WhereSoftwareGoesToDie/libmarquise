@@ -1,5 +1,5 @@
-AM_CFLAGS  = -pthread -Wall $(GLIB_2_CFLAGS) 
-AM_LDFLAGS = $(GLIB_2_LIBS) -pthread 
+AM_CFLAGS  = -Wall $(GLIB_2_CFLAGS) 
+AM_LDFLAGS = $(GLIB_2_LIBS)
 
 lib_LTLIBRARIES = libmarquise.la
 libmarquise_la_LDFLAGS = $(AM_LDFLAGS) -version-info 1:0:0
