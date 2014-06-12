@@ -67,3 +67,8 @@ int marquise_flush(marquise_ctx *ctx) {
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
 	return 0;
 }
+
+int marquise_shutdown(marquise_ctx *ctx) {
+	int flush_success = marquise_flush(ctx);
+	return flush_success | fclose(ctx->spool);
+}

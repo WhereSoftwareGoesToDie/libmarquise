@@ -20,8 +20,18 @@ typedef struct {
  * address. */
 uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len);
 
+/* Initialize the marquise context. Namespace must be unique on the 
+ * current host, and alphanumeric. Returns NULL on failure. */
 marquise_ctx *marquise_init(char *marquise_namespace);
 
+/* Queue a simple datapoint (i.e., a 64-bit word) to be sent by 
+ * marquised. Returns zero on success and nonzero on failure. */
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value);
 
+/* Ensure the spool file is flushed to disk. You shouldn't normally 
+ * need to call this. Return value is the same as fflush. */
 int marquise_flush(marquise_ctx *ctx);	
+
+/* Clean up, flush, close and free. Zero on success, nonzero on 
+ * other things. */
+int marquise_shutdown(marquise_ctx *ctx);	
