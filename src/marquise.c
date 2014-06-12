@@ -28,3 +28,13 @@ uint8_t valid_namespace(char *namespace) {
 	}
 	return 1;
 }
+
+uint64_t hash_identifier(const unsigned char *id, size_t id_len) {
+	int i;
+	unsigned char key[16];
+	for (i=0; i < 16; i++) {
+		key[i] = 0;
+	}
+	return siphash(id, id_len, key);
+}
+	
