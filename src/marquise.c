@@ -60,6 +60,10 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 	free(spool_path);
 }
 
+int marquise_flush(marquise_ctx *ctx) {
+	return fflush(ctx->spool);
+}
+
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
 	return 0;
 }
