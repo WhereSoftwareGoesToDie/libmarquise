@@ -23,6 +23,5 @@ AC_CHECK_HEADERS([stdlib.h string.h syslog.h])
 AC_CONFIG_FILES([
  Makefile
  src/Makefile
- doc/man/Makefile
 ])
 AC_OUTPUT
