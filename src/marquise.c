@@ -58,6 +58,7 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 	strncpy(spool_path+prefix_len, marquise_namespace, ns_len+1);
 	ctx->spool = fopen(spool_path, "a");
 	free(spool_path);
+	return ctx;
 }
 
 int marquise_flush(marquise_ctx *ctx) {
