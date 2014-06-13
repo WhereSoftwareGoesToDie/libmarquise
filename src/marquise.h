@@ -18,7 +18,8 @@ typedef struct {
 } marquise_ctx;
 
 /* Return the SipHash-2-4[0] of an array of bytes, suitable to use as an 
- * address. 
+ * address. Note that only the 63 most significant bits of this address 
+ * are unique; the LSB is used as a flag for an extended datapoint.
  *
  * [0] https://131002.net/siphash/
  */

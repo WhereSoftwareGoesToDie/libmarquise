@@ -46,8 +46,7 @@ uint64_t marquise_hash_identifier(const char *id, size_t id_len) {
 	unsigned char key[16];
 	memset(key, 0, 16);
 	uint64_t hash = siphash(id, id_len, key);
-	// Clear the LSB because it's used for simple vs. extended metadata.
-	return hash & 0x1111111111111110;
+	return hash;
 }
 
 marquise_ctx *marquise_init(char *marquise_namespace) {
@@ -76,6 +75,8 @@ int marquise_flush(marquise_ctx *ctx) {
 
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
 	uint8_t buf[24];
+	/* Set the LSB for a simple frame. */
+	address &= 0x1111111111111110;
 	U64TO8_LE(buf, address);
 	U64TO8_LE(buf+8, timestamp);
 	U64TO8_LE(buf+16, value);
