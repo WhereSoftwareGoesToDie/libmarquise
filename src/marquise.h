@@ -8,6 +8,7 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 
 #define MARQUISE_SPOOL_PREFIX "/var/spool/marquise/"
 
