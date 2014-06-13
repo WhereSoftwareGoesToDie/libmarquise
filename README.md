@@ -16,8 +16,10 @@ bindings
 ========
 
  - go: https://github.com/anchor/gomarquise
- - haskell: https://github.com/anchor/marquise-haskell
  - Ruby: https://github.com/mpalmer/marquise-ruby (`gem install marquise`)
+
+In addition, the reference implementation of the Marquise interface is in 
+Haskell: https://github.com/anchor/vaultaire
 
 packages
 ========
