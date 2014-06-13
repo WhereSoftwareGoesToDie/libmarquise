@@ -29,8 +29,13 @@ uint64_t marquise_hash_identifier(const char *id, size_t id_len);
 marquise_ctx *marquise_init(char *marquise_namespace);
 
 /* Queue a simple datapoint (i.e., a 64-bit word) to be sent by 
- * marquised. Returns zero on success and nonzero on failure. */
+ * the Marquise daemon. Returns zero on success and nonzero on 
+ * failure. */
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value);
+
+/* Queue an extended datapoint (i.e., a string) to be sent by the 
+ * Marquise daemon. Returns zero on success and nonzero on failure. */
+int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, char *value, size_t value_len);
 
 /* Ensure the spool file is flushed to disk. You shouldn't normally 
  * need to call this. Return value is the same as fflush. */

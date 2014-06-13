@@ -85,6 +85,24 @@ int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp
 	return 0;
 }
 
+int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, char *value, size_t value_len) {
+	size_t buf_len = 24 + value_len;
+	uint8_t *buf = malloc(buf_len);
+	uint64_t length_word = value_len;
+	/* Set the LSB for an extended frame. */
+	address |= 0x0000000000000001; 
+	U64TO8_LE(buf, address);
+	U64TO8_LE(buf+8, timestamp);
+	U64TO8_LE(buf+16, length_word);
+	memcpy(buf+24, value, value_len);
+	int ret = fwrite((void*)buf, 1, buf_len, ctx->spool);
+	free(buf);
+	if (ret != buf_len) {
+		return -1;
+	}
+	return 0;
+}
+
 int marquise_shutdown(marquise_ctx *ctx) {
 	int flush_success = marquise_flush(ctx);
 	return flush_success | fclose(ctx->spool);
