@@ -42,7 +42,7 @@ uint8_t valid_namespace(char *namespace) {
 	return 1;
 }
 
-uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len) {
+uint64_t marquise_hash_identifier(const char *id, size_t id_len) {
 	unsigned char key[16];
 	memset(key, 0, 16);
 	uint64_t hash = siphash(id, id_len, key);
