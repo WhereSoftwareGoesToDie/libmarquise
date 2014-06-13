@@ -18,7 +18,10 @@ typedef struct {
 } marquise_ctx;
 
 /* Return the SipHash-2-4[0] of an array of bytes, suitable to use as an 
- * address. */
+ * address. 
+ *
+ * [0] https://131002.net/siphash/
+ */
 uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len);
 
 /* Initialize the marquise context. Namespace must be unique on the 
