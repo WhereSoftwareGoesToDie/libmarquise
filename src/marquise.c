@@ -50,6 +50,7 @@ uint64_t marquise_hash_identifier(const char *id, size_t id_len) {
 }
 
 marquise_ctx *marquise_init(char *marquise_namespace) {
+	int i;
 	marquise_ctx *ctx = malloc(sizeof(marquise_ctx));
 	if (ctx == NULL) {
 		return NULL;
@@ -61,19 +62,31 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 	const char *spool_prefix = MARQUISE_SPOOL_PREFIX;
 	size_t prefix_len = sizeof(MARQUISE_SPOOL_PREFIX);
 	size_t ns_len = strlen(marquise_namespace);
-	char *spool_path = malloc(prefix_len + ns_len + 1);
-	strncpy(spool_path, spool_prefix, prefix_len);
-	strncpy(spool_path+prefix_len, marquise_namespace, ns_len+1);
-	ctx->spool = fopen(spool_path, "a");
-	free(spool_path);
+	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1;
+	ctx->spool_path = malloc(spool_path_len);
+	if (ctx->spool_path == NULL) {
+		return NULL;
+	}
+	strncpy(ctx->spool_path, spool_prefix, prefix_len);
+	strncpy(ctx->spool_path+prefix_len, marquise_namespace, ns_len);
+	ctx->spool_path[prefix_len] = '/';
+	for (i = prefix_len + 1; i < spool_path_len-1; i++) {
+		ctx->spool_path[i] = 'X';
+	}
+	ctx->spool_path[spool_path_len-1] = '\0';
+	int tmpf = mkstemp(ctx->spool_path);
+	if (tmpf < 0) {
+		marquise_shutdown(ctx);
+		return NULL;
+	}
 	return ctx;
 }
 
-int marquise_flush(marquise_ctx *ctx) {
-	return fflush(ctx->spool);
-}
-
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
+	ctx->spool = freopen(ctx->spool_path, "a", ctx->spool);
+	if (ctx->spool == NULL) {
+		return -1;
+	}
 	uint8_t buf[24];
 	/* Set the LSB for a simple frame. */
 	address &= 0x1111111111111110;
@@ -83,10 +96,14 @@ int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp
 	if (fwrite((void*)buf, 1, 24, ctx->spool) != 24) {
 		return -1;
 	}
-	return 0;
+	return fflush(ctx->spool);
 }
 
 int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, char *value, size_t value_len) {
+	ctx->spool = freopen(ctx->spool_path, "a", ctx->spool);
+	if (ctx->spool == NULL) {
+		return -1;
+	}
 	size_t buf_len = 24 + value_len;
 	uint8_t *buf = malloc(buf_len);
 	uint64_t length_word = value_len;
@@ -101,10 +118,10 @@ int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timesta
 	if (ret != buf_len) {
 		return -1;
 	}
-	return 0;
+	return fflush(ctx->spool);
 }
 
 int marquise_shutdown(marquise_ctx *ctx) {
-	int flush_success = marquise_flush(ctx);
-	return flush_success | fclose(ctx->spool);
+	free(ctx->spool_path);
+	return fclose(ctx->spool);
 }

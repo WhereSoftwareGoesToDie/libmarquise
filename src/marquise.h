@@ -13,7 +13,7 @@
 #define MARQUISE_SPOOL_PREFIX "/var/spool/marquise/"
 
 typedef struct {
-	char *marquise_namespace;
+	char *spool_path;
 	FILE *spool;
 } marquise_ctx;
 
@@ -37,10 +37,6 @@ int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp
 /* Queue an extended datapoint (i.e., a string) to be sent by the 
  * Marquise daemon. Returns zero on success and nonzero on failure. */
 int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, char *value, size_t value_len);
-
-/* Ensure the spool file is flushed to disk. You shouldn't normally 
- * need to call this. Return value is the same as fflush. */
-int marquise_flush(marquise_ctx *ctx);	
 
 /* Clean up, flush, close and free. Zero on success, nonzero on 
  * other things. */
