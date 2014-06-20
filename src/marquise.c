@@ -59,8 +59,10 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 		errno = EINVAL;
 		return NULL;
 	}
-	const char *spool_prefix = MARQUISE_SPOOL_PREFIX;
-	size_t prefix_len = sizeof(MARQUISE_SPOOL_PREFIX);
+	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
+	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
+	const char *spool_prefix = (envvar_spool_prefix == NULL) ? default_spool_prefix : envvar_spool_prefix;
+	size_t prefix_len = strlen(spool_prefix);
 	size_t ns_len = strlen(marquise_namespace);
 	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1;
 	ctx->spool_path = malloc(spool_path_len);

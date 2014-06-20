@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define MARQUISE_SPOOL_PREFIX "/var/spool/marquise/"
+#define MARQUISE_SPOOL_DIR "/var/spool/marquise"
 
 typedef struct {
 	char *spool_path;
@@ -26,7 +26,12 @@ typedef struct {
 uint64_t marquise_hash_identifier(const char *id, size_t id_len);
 
 /* Initialize the marquise context. Namespace must be unique on the 
- * current host, and alphanumeric. Returns NULL on failure. */
+ * current host, and alphanumeric. Returns NULL on failure. 
+ * 
+ * marquise_init will open a file in the SPOOL_DIR directory; this will
+ * default to "/var/spool/marquise", but can be overridden by the
+ * MARQUISE_SPOOL_DIR environment variable.
+ */
 marquise_ctx *marquise_init(char *marquise_namespace);
 
 /* Queue a simple datapoint (i.e., a 64-bit word) to be sent by 
