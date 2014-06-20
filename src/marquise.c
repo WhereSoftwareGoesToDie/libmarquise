@@ -49,6 +49,30 @@ uint64_t marquise_hash_identifier(const char *id, size_t id_len) {
 	return hash;
 }
 
+char *build_spool_path(const char *spool_prefix, char *namespace) {
+	int i;
+	size_t prefix_len = strlen(spool_prefix);
+	size_t ns_len = strlen(namespace);
+	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1;
+	char *spool_path = malloc(spool_path_len);
+	if (spool_path == NULL) {
+		return NULL;
+	}
+	strncpy(spool_path, spool_prefix, prefix_len);
+	strncpy(spool_path+prefix_len, namespace, ns_len);
+	spool_path[prefix_len + spool_path_len] = '/';
+	for (i = spool_path_len + prefix_len + 1; i < spool_path_len-1; i++) {
+		spool_path[i] = 'X';
+	}
+	spool_path[spool_path_len-1] = '\0';
+	int tmpf = mkstemp(spool_path);
+	if (tmpf < 0) {
+		free(spool_path);
+		return NULL;
+	}
+	return spool_path;
+}
+
 marquise_ctx *marquise_init(char *marquise_namespace) {
 	int i;
 	marquise_ctx *ctx = malloc(sizeof(marquise_ctx));
@@ -62,23 +86,8 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
 	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
 	const char *spool_prefix = (envvar_spool_prefix == NULL) ? default_spool_prefix : envvar_spool_prefix;
-	size_t prefix_len = strlen(spool_prefix);
-	size_t ns_len = strlen(marquise_namespace);
-	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1;
-	ctx->spool_path = malloc(spool_path_len);
+	ctx->spool_path = build_spool_path(spool_prefix, marquise_namespace);
 	if (ctx->spool_path == NULL) {
-		return NULL;
-	}
-	strncpy(ctx->spool_path, spool_prefix, prefix_len);
-	strncpy(ctx->spool_path+prefix_len, marquise_namespace, ns_len);
-	ctx->spool_path[spool_path + prefix_len] = '/';
-	for (i = spool_path + prefix_len + 1; i < spool_path_len-1; i++) {
-		ctx->spool_path[i] = 'X';
-	}
-	ctx->spool_path[spool_path_len-1] = '\0';
-	int tmpf = mkstemp(ctx->spool_path);
-	if (tmpf < 0) {
-		marquise_shutdown(ctx);
 		return NULL;
 	}
 	return ctx;
