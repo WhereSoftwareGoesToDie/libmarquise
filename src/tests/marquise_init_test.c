@@ -9,7 +9,7 @@ void test_init() {
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
-	g_assert_nonnull(ctx);
+	g_assert(ctx != NULL);
 }
 
 int main(int argc, char **argv) {
