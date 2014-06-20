@@ -10,13 +10,17 @@ dist_noinst_HEADERS = siphash24.h
 TESTS=$(check_PROGRAMS)
 check_PROGRAMS=\
 	marquise_init_test \
-	marquise_hash_test
+	marquise_hash_test \
+	marquise_util_test
 
 marquise_hash_test_SOURCES = tests/marquise_hash_test.c
 marquise_hash_test_LDADD = libmarquise.la
 
 marquise_init_test_SOURCES = tests/marquise_init_test.c
 marquise_init_test_LDADD = libmarquise.la
+
+marquise_util_test_SOURCES = tests/marquise_util_test.c
+marquise_util_test_LDADD = libmarquise.la
 
 indent: *.c *.h bin/*.c tests/*.c
 	indent -linux $^
