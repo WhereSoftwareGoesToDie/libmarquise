@@ -88,7 +88,7 @@ int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp
 		return -1;
 	}
 	uint8_t buf[24];
-	/* Set the LSB for a simple frame. */
+	/* Clear the LSB for a simple frame. */
 	address &= 0xffffffffffffffff-1;
 	U64TO8_LE(buf, address);
 	U64TO8_LE(buf+8, timestamp);
