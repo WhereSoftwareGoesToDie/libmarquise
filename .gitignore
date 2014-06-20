@@ -39,5 +39,5 @@ src/tests/defer_file_test
 *.tar.gz
 .deps
 .dirstamp
-doc/man/*.8
+doc/man/*.3
 doc/man/*.html
