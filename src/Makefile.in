@@ -79,7 +79,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-check_PROGRAMS = marquise_test$(EXEEXT)
+check_PROGRAMS = marquise_init_test$(EXEEXT) \
+	marquise_hash_test$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/depcomp $(dist_noinst_HEADERS) \
@@ -136,9 +137,12 @@ libmarquise_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_CFLAGS) $(CFLAGS) $(libmarquise_la_LDFLAGS) $(LDFLAGS) -o \
 	$@
 am__dirstamp = $(am__leading_dot)dirstamp
-am_marquise_test_OBJECTS = tests/marquise_test.$(OBJEXT)
-marquise_test_OBJECTS = $(am_marquise_test_OBJECTS)
-marquise_test_DEPENDENCIES = libmarquise.la
+am_marquise_hash_test_OBJECTS = tests/marquise_hash_test.$(OBJEXT)
+marquise_hash_test_OBJECTS = $(am_marquise_hash_test_OBJECTS)
+marquise_hash_test_DEPENDENCIES = libmarquise.la
+am_marquise_init_test_OBJECTS = tests/marquise_init_test.$(OBJEXT)
+marquise_init_test_OBJECTS = $(am_marquise_init_test_OBJECTS)
+marquise_init_test_DEPENDENCIES = libmarquise.la
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -173,8 +177,10 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libmarquise_la_SOURCES) $(marquise_test_SOURCES)
-DIST_SOURCES = $(libmarquise_la_SOURCES) $(marquise_test_SOURCES)
+SOURCES = $(libmarquise_la_SOURCES) $(marquise_hash_test_SOURCES) \
+	$(marquise_init_test_SOURCES)
+DIST_SOURCES = $(libmarquise_la_SOURCES) $(marquise_hash_test_SOURCES) \
+	$(marquise_init_test_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -505,8 +511,10 @@ libmarquise_la_SOURCES = marquise.c siphash24.c
 include_HEADERS = marquise.h
 dist_noinst_HEADERS = siphash24.h
 TESTS = $(check_PROGRAMS)
-marquise_test_SOURCES = tests/marquise_test.c
-marquise_test_LDADD = libmarquise.la
+marquise_hash_test_SOURCES = tests/marquise_hash_test.c
+marquise_hash_test_LDADD = libmarquise.la
+marquise_init_test_SOURCES = tests/marquise_init_test.c
+marquise_init_test_LDADD = libmarquise.la
 all: all-am
 
 .SUFFIXES:
@@ -594,12 +602,18 @@ tests/$(am__dirstamp):
 tests/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) tests/$(DEPDIR)
 	@: > tests/$(DEPDIR)/$(am__dirstamp)
-tests/marquise_test.$(OBJEXT): tests/$(am__dirstamp) \
+tests/marquise_hash_test.$(OBJEXT): tests/$(am__dirstamp) \
 	tests/$(DEPDIR)/$(am__dirstamp)
 
-marquise_test$(EXEEXT): $(marquise_test_OBJECTS) $(marquise_test_DEPENDENCIES) $(EXTRA_marquise_test_DEPENDENCIES) 
-	@rm -f marquise_test$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(marquise_test_OBJECTS) $(marquise_test_LDADD) $(LIBS)
+marquise_hash_test$(EXEEXT): $(marquise_hash_test_OBJECTS) $(marquise_hash_test_DEPENDENCIES) $(EXTRA_marquise_hash_test_DEPENDENCIES) 
+	@rm -f marquise_hash_test$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(marquise_hash_test_OBJECTS) $(marquise_hash_test_LDADD) $(LIBS)
+tests/marquise_init_test.$(OBJEXT): tests/$(am__dirstamp) \
+	tests/$(DEPDIR)/$(am__dirstamp)
+
+marquise_init_test$(EXEEXT): $(marquise_init_test_OBJECTS) $(marquise_init_test_DEPENDENCIES) $(EXTRA_marquise_init_test_DEPENDENCIES) 
+	@rm -f marquise_init_test$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(marquise_init_test_OBJECTS) $(marquise_init_test_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -610,7 +624,8 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/marquise.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/siphash24.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/marquise_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/marquise_hash_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/marquise_init_test.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -856,9 +871,16 @@ recheck: all $(check_PROGRAMS)
 	        am__force_recheck=am--force-recheck \
 	        TEST_LOGS="$$log_list"; \
 	exit $$?
-marquise_test.log: marquise_test$(EXEEXT)
-	@p='marquise_test$(EXEEXT)'; \
-	b='marquise_test'; \
+marquise_init_test.log: marquise_init_test$(EXEEXT)
+	@p='marquise_init_test$(EXEEXT)'; \
+	b='marquise_init_test'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+marquise_hash_test.log: marquise_hash_test$(EXEEXT)
+	@p='marquise_hash_test$(EXEEXT)'; \
+	b='marquise_hash_test'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
