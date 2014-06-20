@@ -71,8 +71,8 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 	}
 	strncpy(ctx->spool_path, spool_prefix, prefix_len);
 	strncpy(ctx->spool_path+prefix_len, marquise_namespace, ns_len);
-	ctx->spool_path[prefix_len] = '/';
-	for (i = prefix_len + 1; i < spool_path_len-1; i++) {
+	ctx->spool_path[spool_path + prefix_len] = '/';
+	for (i = spool_path + prefix_len + 1; i < spool_path_len-1; i++) {
 		ctx->spool_path[i] = 'X';
 	}
 	ctx->spool_path[spool_path_len-1] = '\0';
