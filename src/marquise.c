@@ -74,7 +74,6 @@ char *build_spool_path(const char *spool_prefix, char *namespace) {
 }
 
 marquise_ctx *marquise_init(char *marquise_namespace) {
-	int i;
 	marquise_ctx *ctx = malloc(sizeof(marquise_ctx));
 	if (ctx == NULL) {
 		return NULL;
