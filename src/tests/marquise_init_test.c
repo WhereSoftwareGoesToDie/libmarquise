@@ -1,11 +1,14 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "../marquise.h"
 
 void test_init() {
-	marquise_ctx *ctx = marquise_init("test");
+	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	mkdir("/tmp/marquisetest", 0700);
+	marquise_ctx *ctx = marquise_init("marquisetest");
 	g_assert_nonnull(ctx);
 }
 
