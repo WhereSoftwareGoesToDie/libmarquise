@@ -60,8 +60,8 @@ char *build_spool_path(const char *spool_prefix, char *namespace) {
 	}
 	strncpy(spool_path, spool_prefix, prefix_len);
 	strncpy(spool_path+prefix_len, namespace, ns_len);
-	spool_path[prefix_len + spool_path_len] = '/';
-	for (i = spool_path_len + prefix_len + 1; i < spool_path_len-1; i++) {
+	spool_path[prefix_len + ns_len] = '/';
+	for (i = prefix_len + ns_len + 1; i < spool_path_len-1; i++) {
 		spool_path[i] = 'X';
 	}
 	spool_path[spool_path_len-1] = '\0';
