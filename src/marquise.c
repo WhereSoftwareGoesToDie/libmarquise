@@ -12,6 +12,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #include "siphash24.h"
 #include "marquise.h"
@@ -42,6 +43,19 @@ uint8_t valid_namespace(char *namespace) {
 	return 1;
 }
 
+/* Create a directory at path if it does not exist. Zero on success, -1 on 
+ * failure. */
+int mkdirp(char *path) {
+	int ret;
+	ret = mkdir(path, 0750);
+	/* Fail if we cannot create the directory for a reason other than that
+	 * it already exists. */
+	if (ret != 0 && errno != EEXIST) {
+		return -1;
+	}
+	return 0;
+}
+
 uint64_t marquise_hash_identifier(const char *id, size_t id_len) {
 	unsigned char key[16];
 	memset(key, 0, 16);
@@ -51,6 +65,7 @@ uint64_t marquise_hash_identifier(const char *id, size_t id_len) {
 
 char *build_spool_path(const char *spool_prefix, char *namespace) {
 	int i;
+	int ret;
 	size_t prefix_len = strlen(spool_prefix);
 	size_t ns_len = strlen(namespace);
 	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1 + 1;
@@ -62,6 +77,12 @@ char *build_spool_path(const char *spool_prefix, char *namespace) {
 	spool_path[prefix_len] = '/';
 	strncpy(spool_path+prefix_len+1, namespace, ns_len);
 	spool_path[prefix_len + ns_len+1] = '/';
+
+	ret = mkdirp(spool_path);
+	if (ret != 0) {
+		return NULL;
+	}
+	
 	for (i = prefix_len + ns_len + 2; i < spool_path_len-1; i++) {
 		spool_path[i] = 'X';
 	}
