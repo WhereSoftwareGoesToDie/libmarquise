@@ -78,6 +78,9 @@ char *build_spool_path(const char *spool_prefix, char *namespace) {
 	strncpy(spool_path+prefix_len+1, namespace, ns_len);
 	spool_path[prefix_len + ns_len+1] = '/';
 
+	/* Temporarily null-terminate the string at the directory name 
+         * so we can ensure it exists. */
+	spool_path[prefix_len + ns_len+2] = '\0';
 	ret = mkdirp(spool_path);
 	if (ret != 0) {
 		return NULL;
