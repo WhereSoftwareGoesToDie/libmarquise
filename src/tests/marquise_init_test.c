@@ -16,8 +16,18 @@ void test_init() {
 	}
 }
 
+void test_init_no_dir() {
+	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	marquise_ctx *ctx = marquise_init("marquisetest2");
+	if (ctx == NULL) {
+		printf("marquise_init failed: %s\n", strerror(errno));
+		g_test_fail();
+	}
+}
+
 int main(int argc, char **argv) {
 	g_test_init(&argc, &argv, NULL);
 	g_test_add_func("/marquise_init/init", test_init);
+	g_test_add_func("/marquise_init/init_no_dir", test_init_no_dir);
 	return g_test_run();
 }
