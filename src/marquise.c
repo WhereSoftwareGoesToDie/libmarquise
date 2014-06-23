@@ -53,15 +53,16 @@ char *build_spool_path(const char *spool_prefix, char *namespace) {
 	int i;
 	size_t prefix_len = strlen(spool_prefix);
 	size_t ns_len = strlen(namespace);
-	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1;
+	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1 + 1;
 	char *spool_path = malloc(spool_path_len);
 	if (spool_path == NULL) {
 		return NULL;
 	}
 	strncpy(spool_path, spool_prefix, prefix_len);
-	strncpy(spool_path+prefix_len, namespace, ns_len);
-	spool_path[prefix_len + ns_len] = '/';
-	for (i = prefix_len + ns_len + 1; i < spool_path_len-1; i++) {
+	spool_path[prefix_len] = '/';
+	strncpy(spool_path+prefix_len+1, namespace, ns_len);
+	spool_path[prefix_len + ns_len+1] = '/';
+	for (i = prefix_len + ns_len + 2; i < spool_path_len-1; i++) {
 		spool_path[i] = 'X';
 	}
 	spool_path[spool_path_len-1] = '\0';
