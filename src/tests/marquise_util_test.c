@@ -20,8 +20,17 @@ void test_invalid_namespace() {
 
 void test_build_spool_path() {
 	char *spool_path = build_spool_path("/tmp", "marquisetest");
+	if (spool_path == NULL) {
+		printf("build_spool_path returned NULL");
+		g_test_fail();
+	}
 	char *expected_path = "/tmp/marquisetest/";
+	size_t spool_len = strlen(spool_path);
 	size_t expected_len = strlen(expected_path);
+	if (spool_len < expected_len) {
+		printf("Got path %s, expected path with prefix %s\n", spool_path, expected_path);
+		g_test_fail();
+	}
 	int i;
 	for (i=0; i < expected_len; i++) {
 		if (expected_path[i] != spool_path[i]) {
