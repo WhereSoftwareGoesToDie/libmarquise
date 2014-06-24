@@ -118,8 +118,8 @@ marquise_ctx *marquise_init(char *marquise_namespace) {
 }
 
 int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value) {
-	ctx->spool = freopen(ctx->spool_path, "a", ctx->spool);
-	if (ctx->spool == NULL) {
+	FILE *spool = fopen(ctx->spool_path, "a"); 
+	if (spool == NULL) {
 		return -1;
 	}
 	uint8_t buf[24];
@@ -128,15 +128,15 @@ int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp
 	U64TO8_LE(buf, address);
 	U64TO8_LE(buf+8, timestamp);
 	U64TO8_LE(buf+16, value);
-	if (fwrite((void*)buf, 1, 24, ctx->spool) != 24) {
+	if (fwrite((void*)buf, 1, 24, spool) != 24) {
 		return -1;
 	}
-	return fflush(ctx->spool);
+	return fclose(spool);
 }
 
 int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, char *value, size_t value_len) {
-	ctx->spool = freopen(ctx->spool_path, "a", ctx->spool);
-	if (ctx->spool == NULL) {
+	FILE *spool = fopen(ctx->spool_path, "a"); 
+	if (spool == NULL) {
 		return -1;
 	}
 	size_t buf_len = 24 + value_len;
@@ -148,12 +148,12 @@ int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timesta
 	U64TO8_LE(buf+8, timestamp);
 	U64TO8_LE(buf+16, length_word);
 	memcpy(buf+24, value, value_len);
-	int ret = fwrite((void*)buf, 1, buf_len, ctx->spool);
+	int ret = fwrite((void*)buf, 1, buf_len, spool);
 	free(buf);
 	if (ret != buf_len) {
 		return -1;
 	}
-	return fflush(ctx->spool);
+	return fclose(spool);
 }
 
 int marquise_shutdown(marquise_ctx *ctx) {
