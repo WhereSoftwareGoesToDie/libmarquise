@@ -68,7 +68,9 @@ char *build_spool_path(const char *spool_prefix, char *namespace) {
 	int ret;
 	size_t prefix_len = strlen(spool_prefix);
 	size_t ns_len = strlen(namespace);
-	size_t spool_path_len = prefix_len + ns_len + 1 + 6 + 1 + 1;
+	size_t points_len = 8; /* /points/ */
+	size_t new_len = 5; /* /new/ */
+	size_t spool_path_len = prefix_len + ns_len + points_len + new_len + 1 + 6 + 1 + 1;
 	char *spool_path = malloc(spool_path_len);
 	if (spool_path == NULL) {
 		return NULL;
@@ -85,8 +87,20 @@ char *build_spool_path(const char *spool_prefix, char *namespace) {
 	if (ret != 0) {
 		return NULL;
 	}
+
+	strcpy(spool_path + prefix_len + ns_len + 2, "/points/");
+	ret = mkdirp(spool_path);
+	if (ret != 0) {
+		return NULL;
+	}
+
+	strcpy(spool_path + prefix_len + ns_len + 2 + points_len, "/new/");
+	ret = mkdirp(spool_path);
+	if (ret != 0) {
+		return NULL;
+	}
 	
-	for (i = prefix_len + ns_len + 2; i < spool_path_len-1; i++) {
+	for (i = prefix_len + ns_len + points_len + new_len + 2; i < spool_path_len-1; i++) {
 		spool_path[i] = 'X';
 	}
 	spool_path[spool_path_len-1] = '\0';

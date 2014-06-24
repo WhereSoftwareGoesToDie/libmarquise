@@ -29,7 +29,7 @@ void test_build_spool_path() {
 		g_test_fail();
 		return;
 	}
-	char *expected_path = "/tmp/marquisetest/";
+	char *expected_path = "/tmp/marquisetest//points//new";
 	size_t spool_len = strlen(spool_path);
 	size_t expected_len = strlen(expected_path);
 	if (spool_len < expected_len) {
