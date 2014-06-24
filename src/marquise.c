@@ -158,5 +158,5 @@ int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timesta
 
 int marquise_shutdown(marquise_ctx *ctx) {
 	free(ctx->spool_path);
-	return fclose(ctx->spool);
+	return 0;
 }
