@@ -1,15 +1,7 @@
 language: c
 install:
-  - mkdir -p deps
-  - cd deps
-  - wget http://download.zeromq.org/zeromq-4.0.4.tar.gz
-  - tar -xf zeromq-4.0.4.tar.gz
-  - cd zeromq-4.0.4
-  - ./configure --prefix=/usr
-  - make
-  - sudo make install
-  - cd ../..
-  - ./install_build_deps.sh
+  - sudo apt-get install -y rubygems
+  - gem install ronn
   - autoreconf -i
 script:
   - ./configure && make && make check

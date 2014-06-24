@@ -1,7 +1,5 @@
-man_MANS = marquised.8 marquise_process_deferrals.8
+man_MANS = marquise_init.3
 
-marquised.8: marquised.8.ronn
-	ronn marquised.8.ronn
+marquise_init.3: marquise_init.3.ronn
+	ronn marquise_init.3.ronn
 
-marquise_process_deferrals.8: marquise_process_deferrals.8.ronn
-	ronn marquise_process_deferrals.8.ronn

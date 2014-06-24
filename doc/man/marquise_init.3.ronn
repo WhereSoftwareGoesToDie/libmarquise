@@ -1,0 +1,9 @@
+marquise_init(3) -- initialise libmarquise context
+====================================================================
+
+## SYNOPSIS
+
+#include <marquise.h>
+
+marquise_ctx *marquise_init(char *namespace);
+
