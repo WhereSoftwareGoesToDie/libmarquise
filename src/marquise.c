@@ -18,14 +18,16 @@
 #include "marquise.h"
 
 /* Write the 32-bit value in v to the byte array p. */
-#define U32TO8_LE(p, v)         \
-  (p)[0] = (uint8_t)((v)      ); (p)[1] = (uint8_t)((v) >>  8); \
-(p)[2] = (uint8_t)((v) >> 16); (p)[3] = (uint8_t)((v) >> 24);
+#define U32TO8_LE(p, v)                \
+	(p)[0] = (uint8_t)((v));       \
+	(p)[1] = (uint8_t)((v) >>  8); \
+	(p)[2] = (uint8_t)((v) >> 16); \
+	(p)[3] = (uint8_t)((v) >> 24);
 
 /* Write the 64-bit value in v to the byte array p. */
-#define U64TO8_LE(p, v)         \
-  U32TO8_LE((p),     (uint32_t)((v)      ));   \
-U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
+#define U64TO8_LE(p, v)                            \
+	U32TO8_LE((p),     (uint32_t)((v)      )); \
+	U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
 
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
  * return 0. */
@@ -47,11 +49,9 @@ uint8_t valid_namespace(char *namespace)
  * failure. */
 int mkdirp(char *path)
 {
-	int ret;
-	ret = mkdir(path, 0750);
 	/* Fail if we cannot create the directory for a reason other than that
 	 * it already exists. */
-	if (ret != 0 && errno != EEXIST) {
+	if (mkdir(path, 0750) && errno != EEXIST) {
 		return -1;
 	}
 	return 0;
@@ -61,8 +61,7 @@ uint64_t marquise_hash_identifier(const char *id, size_t id_len)
 {
 	unsigned char key[16];
 	memset(key, 0, 16);
-	hash = siphash(id, id_len, key);
-	return hash;
+	siphash(id, id_len, key);
 }
 
 char *build_spool_path(const char *spool_prefix, char *namespace)
@@ -148,7 +147,8 @@ int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
 	}
 	uint8_t buf[24];
 	/* Clear the LSB for a simple frame. */
-	address &= 0xffffffffffffffff - 1;
+	address = address >> 1 << 1;
+
 	U64TO8_LE(buf, address);
 	U64TO8_LE(buf + 8, timestamp);
 	U64TO8_LE(buf + 16, value);
@@ -165,8 +165,19 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 	if (spool == NULL) {
 		return -1;
 	}
+
 	size_t buf_len = 24 + value_len;
+	if (buf_len < value_len) {
+		// Overflow
+		errno = EINVAL;
+		return -1;
+	}
+
 	uint8_t *buf = malloc(buf_len);
+	if (buf == NULL) {
+		return -1;
+	}
+
 	uint64_t length_word = value_len;
 	/* Set the LSB for an extended frame. */
 	address |= 1;
