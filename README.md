@@ -8,6 +8,7 @@ the Marquise daemon.
 building
 ========
 
+	autoreconf -i
 	./configure
 	make
 	sudo make install
