@@ -23,6 +23,18 @@ typedef struct {
 	size_t n_tags;
 } marquise_source;
 
+/* Creates a Source from an ordered list of field names and an ordered
+ * list of values. Returns NULL on error.
+ *
+ * The comma (',') and colon (':') characters are not valid; all other
+ * characters are valid. errno is set to EINVAL on invalid input.
+ *
+ * FIXME: does this need to be UTF-8?
+ */
+marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags);
+
+void marquise_free_source(marquise_source *source);
+
 /* Return the SipHash-2-4[0] of an array of bytes, suitable to use as an 
  * address. Note that only the 63 most significant bits of this address 
  * are unique; the LSB is used as a flag for an extended datapoint.
@@ -49,15 +61,9 @@ int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp
  * Marquise daemon. Returns zero on success and nonzero on failure. */
 int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, char *value, size_t value_len);
 
-/* Queue a Source (address metadata) for update. The `fields` and
- * `values` parameters are ordered lists of strings; the caller is
- * responsible for freeing. Returns zero on success and nonzero on
- * failure. 
- *
- * The comma (',') and colon (':') characters are not valid; all other
- * characters are valid.
- *
- * FIXME: does this need to be UTF-8?
+/* Queue a Source (address metadata) for update. The caller is
+ * responsible for freeing the source (using `marquise_free_source`).
+ * Returns zero on success, nonzero on failure.
  */
 int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source);
 
