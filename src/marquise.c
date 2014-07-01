@@ -45,6 +45,20 @@ uint8_t valid_namespace(char *namespace)
 	return 1;
 }
 
+/* Return 1 if supplied source tag is valid (no colons or commas);
+ * otherwise return zero.
+ */
+uint8_t valid_source_tag(char *tag)
+{
+	int i;
+	for (i=0; i < strlen(tag); i++) {
+		if (tag[i] == ',' || tag[i] == ':') {
+			return 0;
+		}
+	}
+	return 1;
+
+
 /* Create a directory at path if it does not exist. Zero on success, -1 on 
  * failure. */
 int mkdirp(char *path)
