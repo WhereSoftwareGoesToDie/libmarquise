@@ -43,6 +43,18 @@ int marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp
  * Marquise daemon. Returns zero on success and nonzero on failure. */
 int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, char *value, size_t value_len);
 
+/* Queue a Source (address metadata) for update. The `fields` and
+ * `values` parameters are ordered lists of strings; the caller is
+ * responsible for freeing. Returns zero on success and nonzero on
+ * failure. 
+ *
+ * The comma (',') and colon (':') characters are not valid; all other
+ * characters are valid.
+ *
+ * FIXME: does this need to be UTF-8?
+ */
+int marquise_update_source(marquise_ctx *ctx, uint64_t address, char **fields, char **values);
+
 /* Clean up, flush, close and free. Zero on success, nonzero on 
  * other things. */
 int marquise_shutdown(marquise_ctx *ctx);	
