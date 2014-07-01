@@ -57,7 +57,7 @@ uint8_t valid_source_tag(char *tag)
 		}
 	}
 	return 1;
-
+}
 
 /* Create a directory at path if it does not exist. Zero on success, -1 on 
  * failure. */
