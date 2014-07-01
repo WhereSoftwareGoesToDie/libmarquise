@@ -1,0 +1,8 @@
+marquise_hash_identifier(3) -- compute Vaultaire address for a source ID
+========================================================================
+
+## SYNOPSIS
+
+#include <marquise.h>
+
+uint64_t marquise_hash_identifier(const char *id, size_t id_len);

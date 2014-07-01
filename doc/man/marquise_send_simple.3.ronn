@@ -1,0 +1,9 @@
+marquise_send_simple(3) -- queue a data point to write to Vaultaire
+====================================================================
+
+## SYNOPSIS
+
+#include <marquise.h>
+
+int *marquise_send_simple(marquise_ctx *ctx, uint64_t address, uint64_t timestamp, uint64_t value);
+
