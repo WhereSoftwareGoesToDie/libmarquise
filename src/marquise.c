@@ -71,11 +71,11 @@ int mkdirp(char *path)
 	return 0;
 }
 
-uint64_t marquise_hash_identifier(const char *id, size_t id_len)
+uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len)
 {
 	unsigned char key[16];
 	memset(key, 0, 16);
-	siphash(id, id_len, key);
+	return siphash(id, id_len, key);
 }
 
 char *build_spool_path(const char *spool_prefix, char *namespace)

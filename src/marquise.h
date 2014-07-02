@@ -41,7 +41,7 @@ void marquise_free_source(marquise_source *source);
  *
  * [0] https://131002.net/siphash/
  */
-uint64_t marquise_hash_identifier(const char *id, size_t id_len);
+uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len);
 
 /* Initialize the marquise context. Namespace must be unique on the 
  * current host, and alphanumeric. Returns NULL on failure. 
