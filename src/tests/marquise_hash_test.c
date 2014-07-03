@@ -7,7 +7,7 @@
 void test_hash_identifier() {
 	const char *id = "hostname:fe1.example.com,metric:BytesUsed,service:memory,";
 	size_t id_len = strlen(id);
-	uint64_t address = marquise_hash_identifier(id, id_len);
+	uint64_t address = marquise_hash_identifier((const unsigned char*) id, id_len);
 	g_assert_cmpint(address, ==, 7602883380529707052);
 }
 
