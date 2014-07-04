@@ -212,3 +212,49 @@ int marquise_shutdown(marquise_ctx * ctx)
 	free(ctx->spool_path);
 	return 0;
 }
+
+marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags)
+{
+	// Do we need to check validity of all field names? All values?
+	int i;
+	for (i = 0; i < n_tags; i++) {
+		if (!valid_source_tag(fields[i])) {
+			errno = EINVAL;
+			return NULL;
+		}
+	}
+
+	marquise_source *source = malloc(sizeof(marquise_source));
+	if (source == NULL) {
+		return NULL;
+	}
+
+	// XXX: intentionally unfinished implementation for now
+	source->fields = NULL;
+	source->values = NULL;
+	source->n_tags = 0;
+
+	// Copy stuff in now
+
+	return source;
+}
+
+void marquise_free_source(marquise_source *source)
+{
+
+	// XXX: My C is pretty rusty, this is probably all wrong. Assume that
+	// source->n_tags is correct. Will this explode when fields or values
+	// is NULL? What about when n_tags is zero?
+	int i;
+	for (i = 0; i < source->n_tags; i++) {
+		free(source->fields[i]);
+		free(source->values[i]);
+	}
+	free(source);
+}
+
+int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source)
+{
+	// XXX: To be written
+	return 0;
+}
