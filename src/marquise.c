@@ -212,6 +212,7 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 int marquise_shutdown(marquise_ctx * ctx)
 {
 	free(ctx->spool_path);
+	free(ctx);
 	return 0;
 }
 
