@@ -167,7 +167,7 @@ int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
 	U64TO8_LE(buf + 8, timestamp);
 	U64TO8_LE(buf + 16, value);
 	if (fwrite((void *)buf, 1, 24, spool) != 24) {
-		/* XXX: do we need to fclose here? */
+		fclose(spool);
 		return -1;
 	}
 	return fclose(spool);
@@ -203,7 +203,7 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 	int ret = fwrite((void *)buf, 1, buf_len, spool);
 	free(buf);
 	if (ret != buf_len) {
-		/* XXX: do we need to fclose here? */
+		fclose(spool);
 		return -1;
 	}
 	return fclose(spool);
