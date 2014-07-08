@@ -304,6 +304,7 @@ void marquise_free_source(marquise_source *source)
 
 int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source)
 {
-	// XXX: To be written
+	// XXX: To be written. This can be considered as "submitting" the source_dict
+	// off to the marquise daemon.
 	return 0;
 }
