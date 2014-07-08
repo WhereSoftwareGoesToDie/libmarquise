@@ -80,48 +80,59 @@ uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len)
 
 char *build_spool_path(const char *spool_prefix, char *namespace)
 {
-	int i;
 	int ret;
-	size_t prefix_len = strlen(spool_prefix);
-	size_t ns_len = strlen(namespace);
-	size_t points_len = 8;	/* /points/ */
-	size_t new_len = 5;	/* /new/ */
+
+	const char* pathsep = "/";
+	const char* points  = "points/";
+	const char* new     = "new/";
+	const char* tmp_tpl = "XXXXXX";
+
+	size_t prefix_len  = strlen(spool_prefix);
+	size_t ns_len      = strlen(namespace);
+	size_t points_len  = strlen(points);   /* points/ */
+	size_t new_len     = strlen(new);      /* new/    */
+	size_t tmp_tpl_len = strlen(tmp_tpl);  /* XXXXXX  */
+
 	size_t spool_path_len =
-	    prefix_len + ns_len + points_len + new_len + 1 + 6 + 1 + 1;
+	    prefix_len + 1 + ns_len + 1 + points_len + new_len + tmp_tpl_len + 1;
+	/*               /            /   points/      new/      XXXXXX        \0  */
+
 	char *spool_path = malloc(spool_path_len);
 	if (spool_path == NULL) {
 		return NULL;
 	}
-	strncpy(spool_path, spool_prefix, prefix_len);
-	spool_path[prefix_len] = '/';
-	strncpy(spool_path + prefix_len + 1, namespace, ns_len);
-	spool_path[prefix_len + ns_len + 1] = '/';
+	char* spool_path_end = spool_path;
 
-	/* Temporarily null-terminate the string at the directory name 
-	 * so we can ensure it exists. */
-	spool_path[prefix_len + ns_len + 2] = '\0';
+	/* Ensure the string is always null-terminated. */
+	memset(spool_path, '\0', spool_path_len);
+
+	spool_path_end = stpncpy(spool_path_end, spool_prefix, prefix_len);  /*  /prefix             */
+	spool_path_end = stpncpy(spool_path_end, pathsep, 1);                /*  /prefix/            */
+	spool_path_end = stpncpy(spool_path_end, namespace, ns_len);         /*  /prefix/namespace   */
+	spool_path_end = stpncpy(spool_path_end, pathsep, 1);                /*  /prefix/namespace/  */
+
+	/* Create namespace path if it doesn't exist. */
 	ret = mkdirp(spool_path);
 	if (ret != 0) {
 		return NULL;
 	}
 
-	strcpy(spool_path + prefix_len + ns_len + 2, "/points/");
+	spool_path_end = stpncpy(spool_path_end, points, points_len);        /*  /prefix/namespace/points/  */
+	/* Create points path if it doesn't exist. */
 	ret = mkdirp(spool_path);
 	if (ret != 0) {
 		return NULL;
 	}
 
-	strcpy(spool_path + prefix_len + ns_len + 2 + points_len, "/new/");
+	spool_path_end = stpncpy(spool_path_end, new, new_len);              /*  /prefix/namespace/points/new/  */
+	// Create new path if it doesn't exist.
 	ret = mkdirp(spool_path);
 	if (ret != 0) {
 		return NULL;
 	}
 
-	for (i = prefix_len + ns_len + points_len + new_len + 2;
-	     i < spool_path_len - 1; i++) {
-		spool_path[i] = 'X';
-	}
-	spool_path[spool_path_len - 1] = '\0';
+	spool_path_end = stpncpy(spool_path_end, tmp_tpl, tmp_tpl_len);      /*  /prefix/namespace/points/new/XXXXXX  */
+
 	int tmpf = mkstemp(spool_path);
 	if (tmpf < 0) {
 		free(spool_path);
