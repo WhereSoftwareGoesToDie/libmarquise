@@ -290,16 +290,16 @@ marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags
 
 void marquise_free_source(marquise_source *source)
 {
-
-	// XXX: My C is pretty rusty, this is probably all wrong. Assume that
-	// source->n_tags is correct. Will this explode when fields or values
-	// is NULL? What about when n_tags is zero?
-	int i;
-	for (i = 0; i < source->n_tags; i++) {
-		free(source->fields[i]);
-		free(source->values[i]);
+	if (source != NULL) {
+		int i;
+		for (i = 0; i < source->n_tags; i++) {
+			free(source->fields[i]);
+			free(source->values[i]);
+		}
+		free(source->fields);
+		free(source->values);
+		free(source);
 	}
-	free(source);
 }
 
 int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source)
