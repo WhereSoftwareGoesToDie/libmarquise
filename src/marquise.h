@@ -69,4 +69,4 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 
 /* Clean up, flush, close and free. Zero on success, nonzero on 
  * other things. */
-int marquise_shutdown(marquise_ctx *ctx);	
+int marquise_shutdown(marquise_ctx *ctx);
