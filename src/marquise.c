@@ -229,10 +229,9 @@ int marquise_shutdown(marquise_ctx * ctx)
 
 marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags)
 {
-	// Do we need to check validity of all field names? All values?
 	int i;
 	for (i = 0; i < n_tags; i++) {
-		if (!valid_source_tag(fields[i])) {
+		if (!valid_source_tag(fields[i]) || !valid_source_tag(values[i])) {
 			errno = EINVAL;
 			return NULL;
 		}
