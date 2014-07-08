@@ -230,6 +230,8 @@ int marquise_shutdown(marquise_ctx * ctx)
 marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags)
 {
 	int i;
+
+	/* Everything looks good? Looks good. */
 	for (i = 0; i < n_tags; i++) {
 		if (!valid_source_tag(fields[i]) || !valid_source_tag(values[i])) {
 			errno = EINVAL;
@@ -237,17 +239,51 @@ marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags
 		}
 	}
 
+	/* malloc all the things. */
 	marquise_source *source = malloc(sizeof(marquise_source));
 	if (source == NULL) {
 		return NULL;
 	}
 
-	// XXX: intentionally unfinished implementation for now
-	source->fields = NULL;
-	source->values = NULL;
-	source->n_tags = 0;
+	char **_fields = malloc(n_tags * sizeof(char*));
+	if (fields == NULL) {
+		free(source);
+		return NULL;
+	}
 
-	// Copy stuff in now
+	char **_values = malloc(n_tags * sizeof(char*));
+	if (values == NULL) {
+		free(_fields);
+		free(source);
+		return NULL;
+	}
+
+	source->fields = _fields;
+	source->values = _values;
+	source->n_tags = n_tags;
+
+	/* Iterate over fields,values in lock-step, malloc'ing and assigning to */
+	/* fields[i] and values[i] appropriately.                               */
+	/*                                                                      */
+	/* XXX: strdup() is totally UTF8-clean, right? */
+	for (i = 0; i < n_tags; i++) {
+		/* Eugh, if these allocations fail we need to get out safely     */
+		/* and free() everything before bailing out. It's dirty but I    */
+		/* think this works.                                             */
+		source->fields[i] = strdup(fields[i]);
+		if (source->fields[i] == NULL && errno == ENOMEM) {
+			break;
+		}
+		source->values[i] = strdup(values[i]);
+		if (source->values[i] == NULL && errno == ENOMEM) {
+			break;
+		}
+	}
+	if (errno == ENOMEM) {
+		/* Should only get here if we break'd. */
+		marquise_free_source(source);
+		return NULL;
+	}
 
 	return source;
 }
