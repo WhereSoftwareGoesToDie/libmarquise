@@ -13,7 +13,8 @@
 #define MARQUISE_SPOOL_DIR "/var/spool/marquise"
 
 typedef struct {
-	char *spool_path;
+	char *spool_path_points;
+	char *spool_path_contents;
 	FILE *spool;
 } marquise_ctx;
 

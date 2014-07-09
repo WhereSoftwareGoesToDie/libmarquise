@@ -151,23 +151,33 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 		errno = EINVAL;
 		return NULL;
 	}
-	const char *spool_type = "points";
+	const char *spool_type_points   = "points";
+	const char *spool_type_contents = "contents";
+
 	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
 	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
 	const char *spool_prefix =
 	    (envvar_spool_prefix ==
 	     NULL) ? default_spool_prefix : envvar_spool_prefix;
-	ctx->spool_path = build_spool_path(spool_prefix, marquise_namespace, spool_type);
-	if (ctx->spool_path == NULL) {
+
+	ctx->spool_path_points = build_spool_path(spool_prefix, marquise_namespace, spool_type_points);
+	if (ctx->spool_path_points == NULL) {
 		return NULL;
 	}
+
+	ctx->spool_path_contents = build_spool_path(spool_prefix, marquise_namespace, spool_type_contents);
+	if (ctx->spool_path_contents == NULL) {
+		free(ctx->spool_path_points);
+		return NULL;
+	}
+
 	return ctx;
 }
 
 int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
 			 uint64_t timestamp, uint64_t value)
 {
-	FILE *spool = fopen(ctx->spool_path, "a");
+	FILE *spool = fopen(ctx->spool_path_points, "a");
 	if (spool == NULL) {
 		return -1;
 	}
@@ -188,7 +198,7 @@ int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
 int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 			   uint64_t timestamp, char *value, size_t value_len)
 {
-	FILE *spool = fopen(ctx->spool_path, "a");
+	FILE *spool = fopen(ctx->spool_path_points, "a");
 	if (spool == NULL) {
 		return -1;
 	}
@@ -223,7 +233,8 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 
 int marquise_shutdown(marquise_ctx * ctx)
 {
-	free(ctx->spool_path);
+	free(ctx->spool_path_points);
+	free(ctx->spool_path_contents);
 	free(ctx);
 	return 0;
 }
