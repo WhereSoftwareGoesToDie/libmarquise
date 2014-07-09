@@ -8,7 +8,7 @@
 
 extern uint8_t valid_namespace(char *namespace);
 extern uint8_t valid_source_tag(char *tag);
-extern char* build_spool_path(const char *spool_prefix, char *namespace);
+extern char* build_spool_path(const char *spool_prefix, char *namespace, const char* spool_type);
 
 void test_valid_namespace() {
 	int ret = valid_namespace("abcdefghijklmn12345");
@@ -35,29 +35,44 @@ void test_invalid_namespace() {
 void test_build_spool_path() {
 	const char *prefix = "/tmp";
 	char *namespace = "marquisetest";
-	char *spool_path = build_spool_path(prefix, namespace);
-	if (spool_path == NULL) {
-		printf("build_spool_path returned NULL\n");
+	char *expected_points_path   = "/tmp/marquisetest/points/new";
+	char *expected_contents_path = "/tmp/marquisetest/contents/new";
+
+	char *spool_path_points = build_spool_path(prefix, namespace, "points");
+	if (spool_path_points == NULL) {
+		printf("build_spool_path returned NULL when building for 'points'\n");
 		printf("errno is %s\n", strerror(errno));
+		free(spool_path_points);
 		g_test_fail();
 		return;
 	}
-	char *expected_path = "/tmp/marquisetest//points//new";
-	size_t spool_len = strlen(spool_path);
-	size_t expected_len = strlen(expected_path);
-	if (spool_len < expected_len) {
-		printf("Got path %s, expected path with prefix %s\n", spool_path, expected_path);
+	/* Use the length of the expected path as our safety boundary, it's */
+	/* guaranteed to be safely null-terminated */
+	if (strncmp(spool_path_points, expected_points_path, strlen(expected_points_path)) != 0) {
+		printf("Got 'points' path %s, expected path with prefix %s\n", spool_path_points, expected_points_path);
+		free(spool_path_points);
 		g_test_fail();
 		return;
 	}
-	int i;
-	for (i=0; i < expected_len; i++) {
-		if (expected_path[i] != spool_path[i]) {
-			printf("Got path %s, expected path with prefix %s\n", spool_path, expected_path);
-			g_test_fail();
-			return;
-		}
+	free(spool_path_points);
+
+
+	/* Test for "contents" as well. */
+	char *spool_path_contents = build_spool_path(prefix, namespace, "contents");
+	if (spool_path_contents == NULL) {
+		printf("build_spool_path returned NULL when building for 'contents'\n");
+		printf("errno is %s\n", strerror(errno));
+		free(spool_path_contents);
+		g_test_fail();
+		return;
 	}
+	if (strncmp(spool_path_contents, expected_contents_path, strlen(expected_contents_path)) != 0) {
+		printf("Got 'contents' path %s, expected path with prefix %s\n", spool_path_contents, expected_contents_path);
+		free(spool_path_contents);
+		g_test_fail();
+		return;
+	}
+	free(spool_path_contents);
 }
 
 int main(int argc, char **argv) {
