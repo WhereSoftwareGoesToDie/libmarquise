@@ -314,9 +314,108 @@ void marquise_free_source(marquise_source *source)
 	}
 }
 
+/* Takes a marquise_source and serialises it to a string, suitable to append
+ * to a contents spool file. It is the caller's responsibility to free() the
+ * serialised string once it is no longer needed.
+ *
+ * XXX: This is full of assumptions that fields and values are properly
+ * null-terminated.
+ */
+char *serialise_marquise_source(marquise_source *source)
+{
+	int i;
+	const char* keyvalsep     = ":";
+	const char* keyvalpairsep = ",";
+
+	/* Measure the size of the source_dict */
+	int dict_size_accumulator = 0;
+	for (i = 0; i < source->n_tags; i++) {
+		/* Add 1 for the key:value separating colon. */
+		dict_size_accumulator += strlen(source->fields[i]) + strlen(source->values[i]) + 1;
+	}
+	/* There's a comma between each key-value pair. */
+	dict_size_accumulator += source->n_tags - 1;
+	/* One more for the terminating null byte. */
+	dict_size_accumulator++;
+
+	/* Go ahead and allocate. */
+	char* serialised_dict = malloc(dict_size_accumulator);
+	if (serialised_dict == NULL) {
+		return NULL;
+	}
+	char* serialised_dict_end = serialised_dict;
+	/* Ensure the string is always null-terminated. */
+	memset(serialised_dict, '\0', dict_size_accumulator);
+
+	/* Serialise the source_dict into serialised_dict. Like this?  k1:v1,k2:v2,k3:v3 */
+	for (i = 0; i < source->n_tags; i++) {
+		serialised_dict_end = stpncpy(serialised_dict_end, source->fields[i], strlen(source->fields[i]));
+		serialised_dict_end = stpncpy(serialised_dict_end, keyvalsep, 1);
+		serialised_dict_end = stpncpy(serialised_dict_end, source->values[i], strlen(source->values[i]));
+
+		/* Don't add a pair-separator after the last key-value pair. */
+		if (i < source->n_tags-1) {
+			serialised_dict_end = stpncpy(serialised_dict_end, keyvalpairsep, 1);
+		}
+	}
+
+	return serialised_dict;
+}
+
 int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source)
 {
-	// XXX: To be written. This can be considered as "submitting" the source_dict
-	// off to the marquise daemon.
-	return 0;
+	/* Appends the source_dict to the spool_path_contents file.
+
+	Data structure written to spool file:
+	|| address (64bit) || length (64bit) || serialised key-value pairs ||
+	*/
+	uint64_t serialised_dict_len;
+	size_t   buf_len;
+	size_t   header_size = sizeof(address) + sizeof(serialised_dict_len);
+
+	FILE *spool = fopen(ctx->spool_path_contents, "a");
+	if (spool == NULL) {
+		return -1;
+	}
+
+	char* serialised_dict = serialise_marquise_source(source);
+	if (serialised_dict == NULL) {
+		fclose(spool);
+		return -1;
+	}
+
+	/* Get sizes and sanity check our measurements. */
+	serialised_dict_len = strlen(serialised_dict);
+	buf_len             = header_size + serialised_dict_len;
+	if (buf_len < serialised_dict_len) {
+		// Overflow
+		free(serialised_dict);
+		fclose(spool);
+		errno = EINVAL;
+		return -1;
+	}
+
+	/* Looks safe to proceed. */
+	uint8_t *buf = malloc(buf_len);
+	if (buf == NULL) {
+		free(serialised_dict);
+		fclose(spool);
+		return -1;
+	}
+
+	/* Build the buffer. */
+	U64TO8_LE(buf, address);
+	U64TO8_LE(buf + sizeof(address), serialised_dict_len);
+	memcpy(buf + header_size, serialised_dict, serialised_dict_len);
+	free(serialised_dict);
+
+	/* Write it out, we're done. */
+	int ret = fwrite((void *)buf, 1, buf_len, spool);
+	free(buf);
+	if (ret != buf_len) {
+		fclose(spool);
+		return -1;
+	}
+
+	return fclose(spool);
 }

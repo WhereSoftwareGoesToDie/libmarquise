@@ -9,6 +9,7 @@
 extern uint8_t valid_namespace(char *namespace);
 extern uint8_t valid_source_tag(char *tag);
 extern char* build_spool_path(const char *spool_prefix, char *namespace, const char* spool_type);
+extern char* serialise_marquise_source(marquise_source *source);
 
 void test_valid_namespace() {
 	int ret = valid_namespace("abcdefghijklmn12345");
@@ -73,6 +74,27 @@ void test_build_spool_path() {
 		return;
 	}
 	free(spool_path_contents);
+}
+void test_serialise_marquise_source() {
+	char* fields[3] = { "foo", "bar", "baz" };
+	char* values[3] = { "one", "two", "three" };
+	const char* expected_serialisation = "foo:one,bar:two,baz:three";
+
+	marquise_source* test_src = marquise_new_source(fields, values, 3);
+	char* serialised_dict = serialise_marquise_source(test_src);
+	if (serialised_dict == NULL) {
+		free(serialised_dict);
+		g_test_fail();
+		return;
+	}
+
+	if (strncmp(expected_serialisation, serialised_dict, strlen(expected_serialisation)) != 0) {
+		free(serialised_dict);
+		g_test_fail();
+		return;
+	}
+
+	free(serialised_dict);
 }
 
 int main(int argc, char **argv) {
