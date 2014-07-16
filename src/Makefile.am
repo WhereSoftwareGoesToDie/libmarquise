@@ -13,7 +13,8 @@ check_PROGRAMS=\
 	marquise_hash_test \
 	marquise_util_test \
 	marquise_send_test \
-	marquise_shutdown_test
+	marquise_shutdown_test \
+	marquise_points_write_readback_test
 
 marquise_hash_test_SOURCES = tests/marquise_hash_test.c
 marquise_hash_test_LDADD = libmarquise.la
@@ -29,6 +30,9 @@ marquise_send_test_LDADD = libmarquise.la
 
 marquise_shutdown_test_SOURCES = tests/marquise_shutdown_test.c
 marquise_shutdown_test_LDADD = libmarquise.la
+
+marquise_points_write_readback_test_SOURCES = tests/marquise_points_write_readback_test.c
+marquise_points_write_readback_test_LDADD = libmarquise.la
 
 indent: *.c *.h bin/*.c tests/*.c
 	indent -linux $^
