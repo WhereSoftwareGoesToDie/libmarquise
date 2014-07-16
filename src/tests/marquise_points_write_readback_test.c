@@ -58,9 +58,15 @@ void test_points_write_readback() {
 
 	// Finalise and save spool path
 	char* written_spool_path = strdup(ctx->spool_path_points);
+	if (written_spool_path == NULL) {
+		printf("failed to strdup ctx->spool_path_points: %s\n", strerror(errno));
+		g_test_fail();
+		return;
+	}
 	ret = marquise_shutdown(ctx);
 	if (ret != 0) {
 		printf("marquise_shutdown failed: %s\n", strerror(errno));
+		free(written_spool_path);
 		g_test_fail();
 		return;
 	}
