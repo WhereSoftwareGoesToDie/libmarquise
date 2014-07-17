@@ -13,8 +13,8 @@
 #define SIMPLE_VALUE     133713371337
 #define EXTENDED_ADDRESS   1234567890999999999
 #define EXTENDED_TIMESTAMP 1405392588999999999
-#define EXTENDED_VALUE     "hello world"
-#define EXTENDED_VALUE_LEN 11  // yes this is evil/dangerous, this is measured in bytes, which will be non-obvious if you have a non-ASCII UTF-8 test string
+#define EXTENDED_VALUE     "This is data これはデータ and Sinhala ශුද්ධ සිංහල"
+#define EXTENDED_VALUE_LEN sizeof(EXTENDED_VALUE)-1
 
 /* Read 64 bits from little-endian byte array p, make a 64-bit value. */
 #define LE8TOU64(v, p) v = \
@@ -164,7 +164,7 @@ void test_points_write_readback() {
 
 	if (extended_value_len != EXTENDED_VALUE_LEN) {
 		fclose(spool);
-		printf("Returned value of extended 'extended_value_len' %lu doesn't match expected value of %u\n", extended_value_len, EXTENDED_VALUE_LEN);
+		printf("Returned value of extended 'extended_value_len' %lu doesn't match expected value of %lu\n", extended_value_len, EXTENDED_VALUE_LEN);
 		g_test_fail();
 		return;
 	}
