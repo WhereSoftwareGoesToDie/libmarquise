@@ -41,8 +41,7 @@ void test_build_spool_path() {
 
 	char *spool_path_points = build_spool_path(prefix, namespace, "points");
 	if (spool_path_points == NULL) {
-		printf("build_spool_path returned NULL when building for 'points'\n");
-		printf("errno is %s\n", strerror(errno));
+		perror("build_spool_path returned NULL when building for 'points'");
 		free(spool_path_points);
 		g_test_fail();
 		return;
@@ -61,8 +60,7 @@ void test_build_spool_path() {
 	/* Test for "contents" as well. */
 	char *spool_path_contents = build_spool_path(prefix, namespace, "contents");
 	if (spool_path_contents == NULL) {
-		printf("build_spool_path returned NULL when building for 'contents'\n");
-		printf("errno is %s\n", strerror(errno));
+		perror("build_spool_path returned NULL when building for 'contents'");
 		free(spool_path_contents);
 		g_test_fail();
 		return;
