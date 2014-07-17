@@ -11,13 +11,11 @@
 #define SIMPLE_VALUE     133713371337
 #define EXTENDED_ADDRESS   1234567890999999999
 #define EXTENDED_TIMESTAMP 1405392588999999999
-#define EXTENDED_VALUE     "hello world"
-#define EXTENDED_VALUE_LEN 11  // yes this is evil/dangerous, this is measured in bytes, which will be non-obvious if you have a non-ASCII UTF-8 test string
+#define EXTENDED_VALUE     "This is data これはデータ and Sinhala ශුද්ධ සිංහල"
+#define EXTENDED_VALUE_LEN sizeof(EXTENDED_VALUE)-1
 
 
 void test_send_simple() {
-	int ret;
-
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
@@ -27,8 +25,7 @@ void test_send_simple() {
 		return;
 	}
 
-	ret = marquise_send_simple(ctx, SIMPLE_ADDRESS, SIMPLE_TIMESTAMP, SIMPLE_VALUE);
-	if (ret != 0) {
+	if (marquise_send_simple(ctx, SIMPLE_ADDRESS, SIMPLE_TIMESTAMP, SIMPLE_VALUE) != 0) {
 		printf("marquise_send_simple failed: %s\n", strerror(errno));
 		g_test_fail();
 		return;
@@ -36,8 +33,6 @@ void test_send_simple() {
 }
 
 void test_send_extended() {
-	int ret;
-
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
@@ -46,8 +41,7 @@ void test_send_extended() {
 		g_test_fail();
 	}
 
-	ret = marquise_send_extended(ctx, EXTENDED_ADDRESS, EXTENDED_TIMESTAMP, EXTENDED_VALUE, EXTENDED_VALUE_LEN);
-	if (ret != 0) {
+	if (marquise_send_extended(ctx, EXTENDED_ADDRESS, EXTENDED_TIMESTAMP, EXTENDED_VALUE, EXTENDED_VALUE_LEN) != 0) {
 		printf("marquise_send_extended failed: %s\n", strerror(errno));
 		g_test_fail();
 		return;
