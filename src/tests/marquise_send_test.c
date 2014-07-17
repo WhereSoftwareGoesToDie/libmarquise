@@ -20,13 +20,13 @@ void test_send_simple() {
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
-		printf("marquise_init failed: %s\n", strerror(errno));
+		perror("marquise_init failed");
 		g_test_fail();
 		return;
 	}
 
 	if (marquise_send_simple(ctx, SIMPLE_ADDRESS, SIMPLE_TIMESTAMP, SIMPLE_VALUE) != 0) {
-		printf("marquise_send_simple failed: %s\n", strerror(errno));
+		perror("marquise_send_simple failed");
 		g_test_fail();
 		return;
 	}
@@ -37,12 +37,12 @@ void test_send_extended() {
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
-		printf("marquise_init failed: %s\n", strerror(errno));
+		perror("marquise_init failed");
 		g_test_fail();
 	}
 
 	if (marquise_send_extended(ctx, EXTENDED_ADDRESS, EXTENDED_TIMESTAMP, EXTENDED_VALUE, EXTENDED_VALUE_LEN) != 0) {
-		printf("marquise_send_extended failed: %s\n", strerror(errno));
+		perror("marquise_send_extended failed");
 		g_test_fail();
 		return;
 	}
