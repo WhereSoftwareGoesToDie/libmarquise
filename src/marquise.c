@@ -111,23 +111,26 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 	spool_path_end = stpncpy(spool_path_end, pathsep, 1);                /*  /prefix/namespace/  */
 
 	/* Create namespace path if it doesn't exist. */
-	ret = mkdirp(spool_path);
+	ret = mkdirp(spool_path);  /* Will return -1 on failure, with errno set to whatever mkdir(3) indicates. */
 	if (ret != 0) {
+		free(spool_path);
 		return NULL;
 	}
 
 	spool_path_end = stpncpy(spool_path_end, spool_type, spool_type_len);  /*  /prefix/namespace/{points,contents}   */
 	spool_path_end = stpncpy(spool_path_end, pathsep, 1);                  /*  /prefix/namespace/{points,contents}/  */
 	/* Create points/contents path if it doesn't exist. */
-	ret = mkdirp(spool_path);
+	ret = mkdirp(spool_path);  /* See above for failure notes. */
 	if (ret != 0) {
+		free(spool_path);
 		return NULL;
 	}
 
 	spool_path_end = stpncpy(spool_path_end, new, new_len);                /*  /prefix/namespace/{points,contents}/new/  */
 	// Create new path if it doesn't exist.
-	ret = mkdirp(spool_path);
+	ret = mkdirp(spool_path);  /* See above. */
 	if (ret != 0) {
+		free(spool_path);
 		return NULL;
 	}
 
@@ -149,6 +152,7 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	}
 	if (!valid_namespace(marquise_namespace)) {
 		errno = EINVAL;
+		free(ctx);
 		return NULL;
 	}
 	const char *spool_type_points   = "points";
@@ -162,12 +166,14 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 
 	ctx->spool_path_points = build_spool_path(spool_prefix, marquise_namespace, spool_type_points);
 	if (ctx->spool_path_points == NULL) {
+		free(ctx);
 		return NULL;
 	}
 
 	ctx->spool_path_contents = build_spool_path(spool_prefix, marquise_namespace, spool_type_contents);
 	if (ctx->spool_path_contents == NULL) {
 		free(ctx->spool_path_points);
+		free(ctx);
 		return NULL;
 	}
 
