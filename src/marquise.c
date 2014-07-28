@@ -353,7 +353,7 @@ char *serialise_marquise_source(marquise_source *source)
 	/* Ensure the string is always null-terminated. */
 	memset(serialised_dict, '\0', dict_size_accumulator);
 
-	/* Serialise the source_dict into serialised_dict. Like this?  k1:v1,k2:v2,k3:v3 */
+	/* Serialise the source_dict into serialised_dict. Like this:  k1:v1,k2:v2,k3:v3 */
 	for (i = 0; i < source->n_tags; i++) {
 		serialised_dict_end = stpncpy(serialised_dict_end, source->fields[i], strlen(source->fields[i]));
 		serialised_dict_end = stpncpy(serialised_dict_end, keyvalsep, 1);
