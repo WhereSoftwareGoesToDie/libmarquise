@@ -249,6 +249,9 @@ marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags
 {
 	int i;
 
+	/* We will test for ENOMEM later. */
+	errno = 0;
+
 	/* Everything looks good? Looks good. */
 	for (i = 0; i < n_tags; i++) {
 		if (!valid_source_tag(fields[i]) || !valid_source_tag(values[i])) {
