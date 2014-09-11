@@ -10,7 +10,14 @@
 #define SIMPLE_VALUE     133713371337
 
 void test_rotate() {
-    int max_simple_per_file = MAX_SPOOL_FILE_SIZE/ 24;
+    /* In the case that MAX_SPOOL_FILE_SIZE is an exact multiple of
+     * sizeof(a_point), we want to write one less (so as to not exactly
+     * fill the file). That way, the very next write will trigger a
+     * spill, which we will detect.
+     * This would be simpler if MAX_SPOOL_FILE_SIZE were assured to be
+     * a prime number, but c'est la vie.
+     */
+    int max_simple_per_file = (MAX_SPOOL_FILE_SIZE-1) / 24;
     int i;
     setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
 	marquise_ctx *ctx = marquise_init("marquisetest");
