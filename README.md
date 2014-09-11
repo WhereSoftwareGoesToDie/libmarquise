@@ -16,11 +16,15 @@ building
 bindings
 ========
 
+ - Python: https://github.com/anchor/pymarquise
+
+The following bindings have not been updated for Vaultaire v2: 
+
  - go: https://github.com/anchor/gomarquise
  - Ruby: https://github.com/mpalmer/marquise-ruby (`gem install marquise`)
 
 In addition, the reference implementation of the Marquise interface is in 
-Haskell: https://github.com/anchor/vaultaire
+Haskell: https://github.com/anchor/marquise
 
 packages
 ========
