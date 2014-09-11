@@ -160,15 +160,8 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 }
 
 int maybe_rotate(marquise_ctx *ctx, spool_type t) { 
-    struct stat file_status;
-
-    /* Get file size of spool file*/
-    if (stat(ctx->spool_path[t], &file_status) != 0) {
-        return -1;
-    }
-
     /* If the file is under max size, we're done, else rotate*/
-    if ((size_t)file_status.st_size < MAX_SPOOL_FILE_SIZE) {
+    if (ctx->bytes_written[t] < MAX_SPOOL_FILE_SIZE) {
         return 0;
     }
 
@@ -224,7 +217,8 @@ marquise_ctx *marquise_init(char *marquise_namespace)
         free_ctx(ctx);
 		return NULL;
 	}
-
+    ctx->bytes_written[SPOOL_POINTS] = 0;
+    ctx->bytes_written[SPOOL_CONTENTS] = 0;
 	return ctx;
 }
 
@@ -237,6 +231,7 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
         fclose(spool);
         return -1;
     }
+    ctx->bytes_written[t] += buf_size;
     maybe_rotate(ctx, t);
     return fclose(spool);
 }

@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 #define MARQUISE_SPOOL_DIR "/var/spool/marquise"
-#define MAX_SPOOL_FILE_SIZE 120
+#define MAX_SPOOL_FILE_SIZE 1024*1024*16
 
 #define SPOOL_POINTS   0
 #define SPOOL_CONTENTS 1
