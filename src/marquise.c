@@ -38,7 +38,7 @@ void free_ctx(marquise_ctx *ctx) {
 	int i;
 	for (i = 0; i < 2; i++) {
 		if (ctx->spool_path[i] != NULL) {
-		    free(ctx->spool_path[i]);
+			free(ctx->spool_path[i]);
 		}
 	}
 	free(ctx); 
