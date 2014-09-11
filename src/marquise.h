@@ -11,11 +11,17 @@
 #include <stdio.h>
 
 #define MARQUISE_SPOOL_DIR "/var/spool/marquise"
+#define MAX_SPOOL_FILE_SIZE 1024*1024*16
+
+#define SPOOL_POINTS   0
+#define SPOOL_CONTENTS 1
+
+typedef int spool_type;
 
 typedef struct {
-	char *spool_path_points;
-	char *spool_path_contents;
-	FILE *spool;
+    char *marquise_namespace;
+	char *spool_path[2];
+    size_t bytes_written[2];
 } marquise_ctx;
 
 typedef struct {
