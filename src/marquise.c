@@ -29,6 +29,21 @@
 	U32TO8_LE((p),     (uint32_t)((v)      )); \
 	U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
 
+/* Safe and complete destructor for marquise_ctxs */
+void free_ctx(marquise_ctx *ctx) {
+    if (ctx == NULL) return;
+    if (ctx->marquise_namespace != NULL) {
+        free(ctx->marquise_namespace);
+    }
+    int i;
+    for (i = 0; i < 2; i++) {
+        if (ctx->spool_path[i] != NULL) {
+            free(ctx->spool_path[i]);
+        }
+    }
+    free(ctx); 
+}
+
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
  * return 0. */
 uint8_t valid_namespace(char *namespace)
@@ -144,6 +159,38 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 	return spool_path;
 }
 
+int maybe_rotate(marquise_ctx *ctx, spool_type t) { 
+    struct stat file_status;
+
+    /* Get file size of spool file*/
+    if (stat(ctx->spool_path[t], &file_status) != 0) {
+        return -1;
+    }
+
+    /* If the file is under max size, we're done, else rotate*/
+    if ((size_t)file_status.st_size < MAX_SPOOL_FILE_SIZE) {
+        return 0;
+    }
+
+    const char *spool_type_paths = (t == SPOOL_POINTS) ? "points" : "contents";
+
+	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
+	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
+	const char *spool_prefix =
+	    (envvar_spool_prefix ==
+	     NULL) ? default_spool_prefix : envvar_spool_prefix;
+
+    char *new_spool_path = build_spool_path(spool_prefix, ctx->marquise_namespace, spool_type_paths);
+     /* If new path fails to generate, keep using old one for now*/
+    if (new_spool_path == NULL) {
+        return -1;
+    }
+    free(ctx->spool_path[t]);
+    ctx->spool_path[t]=new_spool_path;
+    ctx->bytes_written[t] = 0;
+    return 0;
+}
+
 marquise_ctx *marquise_init(char *marquise_namespace)
 {
 	marquise_ctx *ctx = malloc(sizeof(marquise_ctx));
@@ -152,41 +199,51 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	}
 	if (!valid_namespace(marquise_namespace)) {
 		errno = EINVAL;
-		free(ctx);
+		free_ctx(ctx);
 		return NULL;
 	}
-	const char *spool_type_points   = "points";
-	const char *spool_type_contents = "contents";
-
+    ctx->marquise_namespace = strdup(marquise_namespace);
+    if (ctx->marquise_namespace == NULL) {
+        free_ctx(ctx);
+        return NULL;
+    }
 	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
 	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
 	const char *spool_prefix =
 	    (envvar_spool_prefix ==
 	     NULL) ? default_spool_prefix : envvar_spool_prefix;
 
-	ctx->spool_path_points = build_spool_path(spool_prefix, marquise_namespace, spool_type_points);
-	if (ctx->spool_path_points == NULL) {
-		free(ctx);
+	ctx->spool_path[SPOOL_POINTS] = build_spool_path(spool_prefix, marquise_namespace, "points");
+	if (ctx->spool_path[SPOOL_POINTS] == NULL) {
+        free_ctx(ctx);
 		return NULL;
 	}
 
-	ctx->spool_path_contents = build_spool_path(spool_prefix, marquise_namespace, spool_type_contents);
-	if (ctx->spool_path_contents == NULL) {
-		free(ctx->spool_path_points);
-		free(ctx);
+	ctx->spool_path[SPOOL_CONTENTS] = build_spool_path(spool_prefix, marquise_namespace, "contents");
+	if (ctx->spool_path[SPOOL_CONTENTS] == NULL) {
+        free_ctx(ctx);
 		return NULL;
 	}
 
 	return ctx;
 }
 
+int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type t) {
+    FILE *spool = fopen(ctx->spool_path[t], "a");
+    if (spool == NULL) {
+        return -1;
+    }
+    if (fwrite((void *)buf, 1, buf_size, spool) != buf_size) {
+        fclose(spool);
+        return -1;
+    }
+    maybe_rotate(ctx, t);
+    return fclose(spool);
+}
+
 int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
 			 uint64_t timestamp, uint64_t value)
 {
-	FILE *spool = fopen(ctx->spool_path_points, "a");
-	if (spool == NULL) {
-		return -1;
-	}
 	uint8_t buf[24];
 	/* Clear the LSB for a simple frame. */
 	address = address >> 1 << 1;
@@ -194,21 +251,12 @@ int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
 	U64TO8_LE(buf, address);
 	U64TO8_LE(buf + 8, timestamp);
 	U64TO8_LE(buf + 16, value);
-	if (fwrite((void *)buf, 1, 24, spool) != 24) {
-		fclose(spool);
-		return -1;
-	}
-	return fclose(spool);
+    return rotating_write(ctx, buf, 24, SPOOL_POINTS);
 }
 
 int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 			   uint64_t timestamp, char *value, size_t value_len)
 {
-	FILE *spool = fopen(ctx->spool_path_points, "a");
-	if (spool == NULL) {
-		return -1;
-	}
-
 	size_t buf_len = 24 + value_len;
 	if (buf_len < value_len) {
 		// Overflow
@@ -228,21 +276,15 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 	U64TO8_LE(buf + 8, timestamp);
 	U64TO8_LE(buf + 16, length_word);
 	memcpy(buf + 24, value, value_len);
-	int ret = fwrite((void *)buf, 1, buf_len, spool);
+    int ret = rotating_write(ctx, buf, buf_len, SPOOL_POINTS);
 	free(buf);
-	if (ret != buf_len) {
-		fclose(spool);
-		return -1;
-	}
-	return fclose(spool);
+    return ret;
 }
 
 int marquise_shutdown(marquise_ctx * ctx)
 {
-	free(ctx->spool_path_points);
-	free(ctx->spool_path_contents);
-	free(ctx);
-	return 0;
+	free_ctx(ctx);
+    return 0;
 }
 
 marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags)
@@ -382,14 +424,8 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	size_t   buf_len;
 	size_t   header_size = sizeof(address) + sizeof(serialised_dict_len);
 
-	FILE *spool = fopen(ctx->spool_path_contents, "a");
-	if (spool == NULL) {
-		return -1;
-	}
-
 	char* serialised_dict = serialise_marquise_source(source);
 	if (serialised_dict == NULL) {
-		fclose(spool);
 		return -1;
 	}
 
@@ -399,7 +435,6 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	if (buf_len < serialised_dict_len) {
 		// Overflow
 		free(serialised_dict);
-		fclose(spool);
 		errno = EINVAL;
 		return -1;
 	}
@@ -408,7 +443,6 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	uint8_t *buf = malloc(buf_len);
 	if (buf == NULL) {
 		free(serialised_dict);
-		fclose(spool);
 		return -1;
 	}
 
@@ -419,12 +453,7 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	free(serialised_dict);
 
 	/* Write it out, we're done. */
-	int ret = fwrite((void *)buf, 1, buf_len, spool);
+	int ret = rotating_write(ctx, buf, buf_len, SPOOL_CONTENTS);    
 	free(buf);
-	if (ret != buf_len) {
-		fclose(spool);
-		return -1;
-	}
-
-	return fclose(spool);
+	return ret;
 }
