@@ -31,17 +31,17 @@
 
 /* Safe and complete destructor for marquise_ctxs */
 void free_ctx(marquise_ctx *ctx) {
-    if (ctx == NULL) return;
-    if (ctx->marquise_namespace != NULL) {
-        free(ctx->marquise_namespace);
-    }
-    int i;
-    for (i = 0; i < 2; i++) {
-        if (ctx->spool_path[i] != NULL) {
-            free(ctx->spool_path[i]);
-        }
-    }
-    free(ctx); 
+	if (ctx == NULL) return;
+	if (ctx->marquise_namespace != NULL) {
+		free(ctx->marquise_namespace);
+	}
+	int i;
+	for (i = 0; i < 2; i++) {
+		if (ctx->spool_path[i] != NULL) {
+		    free(ctx->spool_path[i]);
+		}
+	}
+	free(ctx); 
 }
 
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
@@ -52,8 +52,8 @@ uint8_t valid_namespace(char *namespace)
 	int i;
 	for (i = 0; i < len; i++) {
 		if (((namespace[i] | 32) < 'a' || (namespace[i] | 32) > 'z') &&
-		    (namespace[i] < '0' || namespace[i] > '9')
-		    ) {
+			(namespace[i] < '0' || namespace[i] > '9')
+			) {
 			return 0;
 		}
 	}
@@ -108,7 +108,7 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 	size_t tmp_tpl_len    = strlen(tmp_tpl);     /* XXXXXX  */
 
 	size_t spool_path_len =
-	    prefix_len + 1 + ns_len + 1 + spool_type_len    + 1 + new_len + tmp_tpl_len + 1;
+		prefix_len + 1 + ns_len + 1 + spool_type_len    + 1 + new_len + tmp_tpl_len + 1;
 	/*               /            /   points-or-contents  /   new/      XXXXXX        \0  */
 
 	char *spool_path = malloc(spool_path_len);
@@ -160,28 +160,28 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 }
 
 int maybe_rotate(marquise_ctx *ctx, spool_type t) { 
-    /* If the file is under max size, we're done, else rotate*/
-    if (ctx->bytes_written[t] < MAX_SPOOL_FILE_SIZE) {
-        return 0;
-    }
+	/* If the file is under max size, we're done, else rotate*/
+	if (ctx->bytes_written[t] < MAX_SPOOL_FILE_SIZE) {
+		return 0;
+	}
 
-    const char *spool_type_paths = (t == SPOOL_POINTS) ? "points" : "contents";
+	const char *spool_type_paths = (t == SPOOL_POINTS) ? "points" : "contents";
 
 	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
 	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
 	const char *spool_prefix =
-	    (envvar_spool_prefix ==
-	     NULL) ? default_spool_prefix : envvar_spool_prefix;
+		(envvar_spool_prefix ==
+		 NULL) ? default_spool_prefix : envvar_spool_prefix;
 
-    char *new_spool_path = build_spool_path(spool_prefix, ctx->marquise_namespace, spool_type_paths);
-     /* If new path fails to generate, keep using old one for now*/
-    if (new_spool_path == NULL) {
-        return -1;
-    }
-    free(ctx->spool_path[t]);
-    ctx->spool_path[t]=new_spool_path;
-    ctx->bytes_written[t] = 0;
-    return 0;
+	char *new_spool_path = build_spool_path(spool_prefix, ctx->marquise_namespace, spool_type_paths);
+	 /* If new path fails to generate, keep using old one for now*/
+	if (new_spool_path == NULL) {
+		return -1;
+	}
+	free(ctx->spool_path[t]);
+	ctx->spool_path[t]=new_spool_path;
+	ctx->bytes_written[t] = 0;
+	return 0;
 }
 
 marquise_ctx *marquise_init(char *marquise_namespace)
@@ -195,45 +195,45 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 		free_ctx(ctx);
 		return NULL;
 	}
-    ctx->marquise_namespace = strdup(marquise_namespace);
-    if (ctx->marquise_namespace == NULL) {
-        free_ctx(ctx);
-        return NULL;
-    }
+	ctx->marquise_namespace = strdup(marquise_namespace);
+	if (ctx->marquise_namespace == NULL) {
+		free_ctx(ctx);
+		return NULL;
+	}
 	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
 	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
 	const char *spool_prefix =
-	    (envvar_spool_prefix ==
-	     NULL) ? default_spool_prefix : envvar_spool_prefix;
+		(envvar_spool_prefix ==
+		 NULL) ? default_spool_prefix : envvar_spool_prefix;
 
 	ctx->spool_path[SPOOL_POINTS] = build_spool_path(spool_prefix, marquise_namespace, "points");
 	if (ctx->spool_path[SPOOL_POINTS] == NULL) {
-        free_ctx(ctx);
+		free_ctx(ctx);
 		return NULL;
 	}
 
 	ctx->spool_path[SPOOL_CONTENTS] = build_spool_path(spool_prefix, marquise_namespace, "contents");
 	if (ctx->spool_path[SPOOL_CONTENTS] == NULL) {
-        free_ctx(ctx);
+		free_ctx(ctx);
 		return NULL;
 	}
-    ctx->bytes_written[SPOOL_POINTS] = 0;
-    ctx->bytes_written[SPOOL_CONTENTS] = 0;
+	ctx->bytes_written[SPOOL_POINTS] = 0;
+	ctx->bytes_written[SPOOL_CONTENTS] = 0;
 	return ctx;
 }
 
 int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type t) {
-    FILE *spool = fopen(ctx->spool_path[t], "a");
-    if (spool == NULL) {
-        return -1;
-    }
-    if (fwrite((void *)buf, 1, buf_size, spool) != buf_size) {
-        fclose(spool);
-        return -1;
-    }
-    ctx->bytes_written[t] += buf_size;
-    maybe_rotate(ctx, t);
-    return fclose(spool);
+	FILE *spool = fopen(ctx->spool_path[t], "a");
+	if (spool == NULL) {
+		return -1;
+	}
+	if (fwrite((void *)buf, 1, buf_size, spool) != buf_size) {
+		fclose(spool);
+		return -1;
+	}
+	ctx->bytes_written[t] += buf_size;
+	maybe_rotate(ctx, t);
+	return fclose(spool);
 }
 
 int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
@@ -246,7 +246,7 @@ int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
 	U64TO8_LE(buf, address);
 	U64TO8_LE(buf + 8, timestamp);
 	U64TO8_LE(buf + 16, value);
-    return rotating_write(ctx, buf, 24, SPOOL_POINTS);
+	return rotating_write(ctx, buf, 24, SPOOL_POINTS);
 }
 
 int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
@@ -271,15 +271,15 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 	U64TO8_LE(buf + 8, timestamp);
 	U64TO8_LE(buf + 16, length_word);
 	memcpy(buf + 24, value, value_len);
-    int ret = rotating_write(ctx, buf, buf_len, SPOOL_POINTS);
+	int ret = rotating_write(ctx, buf, buf_len, SPOOL_POINTS);
 	free(buf);
-    return ret;
+	return ret;
 }
 
 int marquise_shutdown(marquise_ctx * ctx)
 {
 	free_ctx(ctx);
-    return 0;
+	return 0;
 }
 
 marquise_source *marquise_new_source(char **fields, char **values, size_t n_tags)
