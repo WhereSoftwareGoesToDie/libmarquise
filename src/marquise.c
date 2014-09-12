@@ -13,7 +13,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <glib/gtree.h>
 #include <glib.h>
 
 #include "siphash24.h"
