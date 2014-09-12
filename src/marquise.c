@@ -1,7 +1,7 @@
 /* This file is part of libmarquise.
- * 
+ *
  * Copyright 2014 Anchor Systems Pty Ltd and others.
- * 
+ *
  * The code in this file, and the program it is a part of, is made
  * available to you by its authors as open source software: you can
  * redistribute it and/or modify it under the terms of the BSD license.
@@ -45,7 +45,7 @@ void free_ctx(marquise_ctx *ctx) {
 	if (ctx->sd_hashes != NULL) {
 		g_tree_destroy(ctx->sd_hashes);
 	}
-	free(ctx); 
+	free(ctx);
 }
 
 /* Return 1 if namespace is valid (only alphanumeric characters), otherwise
@@ -78,7 +78,7 @@ uint8_t valid_source_tag(char *tag)
 	return 1;
 }
 
-/* Create a directory at path if it does not exist. Zero on success, -1 on 
+/* Create a directory at path if it does not exist. Zero on success, -1 on
  * failure. */
 int mkdirp(char *path)
 {
@@ -163,7 +163,7 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 	return spool_path;
 }
 
-int maybe_rotate(marquise_ctx *ctx, spool_type t) { 
+int maybe_rotate(marquise_ctx *ctx, spool_type t) {
 	/* If the file is under max size, we're done, else rotate*/
 	if (ctx->bytes_written[t] < MAX_SPOOL_FILE_SIZE) {
 		return 0;
@@ -470,7 +470,7 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	free(serialised_dict);
 
 	/* Write it out, we're done. */
-	int ret = rotating_write(ctx, buf, buf_len, SPOOL_CONTENTS);    
+	int ret = rotating_write(ctx, buf, buf_len, SPOOL_CONTENTS);
 	free(buf);
 	return ret;
 }
