@@ -13,6 +13,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <glib/gtree.h>
+#include <glib.h>
 
 #include "siphash24.h"
 #include "marquise.h"
@@ -40,6 +42,9 @@ void free_ctx(marquise_ctx *ctx) {
 		if (ctx->spool_path[i] != NULL) {
 			free(ctx->spool_path[i]);
 		}
+	}
+	if (ctx->sd_hashes != NULL) {
+		g_tree_destroy(ctx->sd_hashes);
 	}
 	free(ctx); 
 }
@@ -184,6 +189,11 @@ int maybe_rotate(marquise_ctx *ctx, spool_type t) {
 	return 0;
 }
 
+/* Hash comparator for the sourcedict cache*/
+gint hash_comp(gconstpointer a, gconstpointer b) {
+	return *(uint64_t*)a - *(uint64_t*)b;
+}
+
 marquise_ctx *marquise_init(char *marquise_namespace)
 {
 	marquise_ctx *ctx = malloc(sizeof(marquise_ctx));
@@ -219,6 +229,7 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	}
 	ctx->bytes_written[SPOOL_POINTS] = 0;
 	ctx->bytes_written[SPOOL_CONTENTS] = 0;
+	ctx->sd_hashes = g_tree_new(hash_comp);
 	return ctx;
 }
 
@@ -420,8 +431,20 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	size_t   header_size = sizeof(address) + sizeof(serialised_dict_len);
 
 	char* serialised_dict = serialise_marquise_source(source);
+
 	if (serialised_dict == NULL) {
 		return -1;
+	}
+
+	uint64_t hash = marquise_hash_identifier(serialised_dict, strlen(serialised_dict));
+
+	/* If hash is not present in the cache, add and continue, else early exit*/
+	if (g_tree_lookup(ctx->sd_hashes, (gpointer)&hash) == NULL) {
+		int dummy_value = 1; //Dummy value, could be anything not NULL
+		g_tree_insert(ctx->sd_hashes, (gpointer)&hash, (gpointer)&dummy_value);
+	} else {
+		free(serialised_dict);
+		return 0;
 	}
 
 	/* Get sizes and sanity check our measurements. */
