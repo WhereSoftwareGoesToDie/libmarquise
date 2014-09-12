@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <glib.h>
 
 #define MARQUISE_SPOOL_DIR "/var/spool/marquise"
 #define MAX_SPOOL_FILE_SIZE 1024*1024
