@@ -1,6 +1,7 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "../marquise.h"
 
@@ -22,7 +23,6 @@ void test_cache() {
 		return;
 	}
 
-
 	/* Prepare sourcedict */
 	marquise_source* test_src = marquise_new_source(fields, values, 3);
 	if (test_src == NULL) {
@@ -42,6 +42,11 @@ void test_cache() {
 	/* Collect state after 1st dispatch */
 	size_t init_bytes_written = ctx->bytes_written[SPOOL_CONTENTS];
 	char*  init_path = strdup(ctx->spool_path[SPOOL_CONTENTS]);
+	if (init_path == NULL) {
+		perror("Failed to strdup() after first sourcedict dispatch");
+		g_test_fail();
+		return;
+	}
 
 	/* Dispatch again */
 	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src);
@@ -57,11 +62,18 @@ void test_cache() {
 	if (ctx->bytes_written[SPOOL_CONTENTS] != init_bytes_written || strcmp(ctx->spool_path[SPOOL_CONTENTS], init_path) != 0) {
 		printf("marquise_update_source queued a redundant source dict\n");
 		g_test_fail();
-		return;	
+		return;
 	}
 
 	/* Cleanup */
+	free(init_path);
 	marquise_free_source(test_src);
+	ret = marquise_shutdown(ctx);
+	if (ret != 0) {
+		printf("marquise_shutdown failed during final cleanup: %s\n", strerror(errno));
+		g_test_fail();
+		return;
+	}
 }
 
 int main(int argc, char **argv) {
