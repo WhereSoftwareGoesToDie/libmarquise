@@ -17,7 +17,7 @@ check_PROGRAMS=\
 	marquise_points_write_readback_test \
 	marquise_contents_write_readback_test \
 	marquise_rotate_test \
-    marquise_cache_test
+	marquise_cache_test
 
 marquise_hash_test_SOURCES = tests/marquise_hash_test.c
 marquise_hash_test_LDADD = libmarquise.la

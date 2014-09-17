@@ -178,7 +178,7 @@ int maybe_rotate(marquise_ctx *ctx, spool_type t) {
 		 NULL) ? default_spool_prefix : envvar_spool_prefix;
 
 	char *new_spool_path = build_spool_path(spool_prefix, ctx->marquise_namespace, spool_type_paths);
-	 /* If new path fails to generate, keep using old one for now*/
+	/* If new path fails to generate, keep using old one for now. */
 	if (new_spool_path == NULL) {
 		return -1;
 	}
@@ -430,7 +430,6 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	size_t   header_size = sizeof(address) + sizeof(serialised_dict_len);
 
 	char* serialised_dict = serialise_marquise_source(source);
-
 	if (serialised_dict == NULL) {
 		return -1;
 	}
