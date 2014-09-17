@@ -13,7 +13,7 @@ void test_cache() {
 	char* fields[3] = { "foo", "bar", "baz" };
 	char* values[3] = { "one", "two", "three" };
 
-	// Init
+	/* Initialise context */
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
@@ -23,7 +23,7 @@ void test_cache() {
 	}
 
 
-	// Prepare, dispatch, and cleanup the source dict
+	/* Prepare sourcedict */
 	marquise_source* test_src = marquise_new_source(fields, values, 3);
 	if (test_src == NULL) {
 		perror("marquise_new_source failed");
@@ -31,25 +31,36 @@ void test_cache() {
 		return;
 	}
 
+	/* Dispatch sourcedict */
 	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src);
 	if (ret != 0) {
-		perror("marquise_update_source failed");
+		perror("marquise_update_source failed (1st attempt)");
 		g_test_fail();
 		return;
 	}
+
+	/* Collect state after 1st dispatch */
 	size_t init_bytes_written = ctx->bytes_written[SPOOL_CONTENTS];
-	char *init_path = strdup(ctx->spool_path[SPOOL_CONTENTS]);
+	char*  init_path = strdup(ctx->spool_path[SPOOL_CONTENTS]);
+
+	/* Dispatch again */
 	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src);
 	if (ret != 0) {
-		perror("marquise_update_source failed");
+		perror("marquise_update_source failed (2nd attempt)");
 		g_test_fail();
 		return;
 	}
+
+	/* Verify new state, we should NOT have written any new spool data
+	 * thanks to the presence of the sourcedict cache.
+	 */
 	if (ctx->bytes_written[SPOOL_CONTENTS] != init_bytes_written || strcmp(ctx->spool_path[SPOOL_CONTENTS], init_path) != 0) {
 		printf("marquise_update_source queued a redundant source dict\n");
 		g_test_fail();
 		return;	
 	}
+
+	/* Cleanup */
 	marquise_free_source(test_src);
 }
 
