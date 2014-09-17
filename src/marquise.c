@@ -13,7 +13,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <glib-2.0/glib.h>
+#include <glib.h>
 
 #include "siphash24.h"
 #include "marquise.h"
