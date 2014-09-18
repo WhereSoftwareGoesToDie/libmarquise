@@ -36,6 +36,8 @@ void free_ctx(marquise_ctx *ctx) {
 	free(ctx->marquise_namespace);
 	free(ctx->spool_path_points);
 	free(ctx->spool_path_contents);
+	/* This avoids getting a dumb error message: */
+	/* GLib-CRITICAL **: g_tree_destroy: assertion 'tree != NULL' failed */
 	if (ctx->sd_hashes != NULL) {
 		g_tree_destroy(ctx->sd_hashes);
 	}
@@ -206,6 +208,16 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	if (ctx == NULL) {
 		return NULL;
 	}
+
+	/* Zero the struct to ensure it's clean. This allows free_ctx() to run
+	 * with gay abandon, because it has no context as to which struct
+	 * members have or haven't been safely defined.
+	 */
+	ctx->marquise_namespace = NULL;
+	ctx->spool_path_points = NULL;
+	ctx->spool_path_contents = NULL;
+	ctx->sd_hashes = NULL;
+
 	if (!valid_namespace(marquise_namespace)) {
 		errno = EINVAL;
 		free_ctx(ctx);
