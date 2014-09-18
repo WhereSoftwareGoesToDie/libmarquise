@@ -448,7 +448,8 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 		return -1;
 	}
 
-	uint64_t hash = marquise_hash_identifier(serialised_dict, strlen(serialised_dict));
+	serialised_dict_len = strlen(serialised_dict);
+	uint64_t hash = marquise_hash_identifier((const unsigned char*)serialised_dict, serialised_dict_len);
 
 	/* If hash is not present in the cache, add and continue, else early exit*/
 	if (g_tree_lookup(ctx->sd_hashes, (gpointer)&hash) == NULL) {
@@ -460,10 +461,9 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	}
 
 	/* Get sizes and sanity check our measurements. */
-	serialised_dict_len = strlen(serialised_dict);
-	buf_len             = header_size + serialised_dict_len;
+	buf_len = header_size + serialised_dict_len;
 	if (buf_len < serialised_dict_len) {
-		// Overflow
+		// 0verflow
 		free(serialised_dict);
 		errno = EINVAL;
 		return -1;
