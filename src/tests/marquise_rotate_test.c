@@ -26,18 +26,18 @@ void test_rotate() {
 		g_test_fail();
 		return;
 	}
-	char *initial_points_file = strdup(ctx->spool_path[SPOOL_POINTS]);
+	char *initial_points_file = strdup(ctx->spool_path_points);
 	for (i = 0; i < max_simple_per_file; i++) {
 		 marquise_send_simple(ctx, SIMPLE_ADDRESS, SIMPLE_TIMESTAMP + i, SIMPLE_VALUE);
 	}
-	int ret = strcmp(initial_points_file, ctx->spool_path[SPOOL_POINTS]);
+	int ret = strcmp(initial_points_file, ctx->spool_path_points);
 	if (ret != 0) {
 		 printf("rotation of spool files failed: should not have rotated but did\n");
 		 g_test_fail();
 		 return;
 	}
 	marquise_send_simple(ctx, SIMPLE_ADDRESS, SIMPLE_TIMESTAMP + max_simple_per_file, SIMPLE_VALUE);
-	ret = strcmp(initial_points_file, ctx->spool_path[SPOOL_POINTS]);
+	ret = strcmp(initial_points_file, ctx->spool_path_points);
 	if (ret == 0) {
 		 printf("rotation of spool files failed: should have rotated but did not\n");
 		 g_test_fail();

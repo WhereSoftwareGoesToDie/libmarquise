@@ -16,13 +16,14 @@
 
 #define SPOOL_POINTS   0
 #define SPOOL_CONTENTS 1
-
 typedef int spool_type;
 
 typedef struct {
 	char *marquise_namespace;
-	char *spool_path[2];
-	size_t bytes_written[2];
+	char *spool_path_points;
+	char *spool_path_contents;
+	size_t bytes_written_points;
+	size_t bytes_written_contents;
 	GTree *sd_hashes;
 } marquise_ctx;
 

@@ -33,15 +33,9 @@
 /* Safe and complete destructor for marquise_ctxs */
 void free_ctx(marquise_ctx *ctx) {
 	if (ctx == NULL) return;
-	if (ctx->marquise_namespace != NULL) {
-		free(ctx->marquise_namespace);
-	}
-	int i;
-	for (i = 0; i < 2; i++) {
-		if (ctx->spool_path[i] != NULL) {
-			free(ctx->spool_path[i]);
-		}
-	}
+	free(ctx->marquise_namespace);
+	free(ctx->spool_path_points);
+	free(ctx->spool_path_contents);
 	if (ctx->sd_hashes != NULL) {
 		g_tree_destroy(ctx->sd_hashes);
 	}
@@ -113,7 +107,7 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 
 	size_t spool_path_len =
 		prefix_len + 1 + ns_len + 1 + spool_type_len    + 1 + new_len + tmp_tpl_len + 1;
-	/*               /            /   points-or-contents  /   new/      XXXXXX        \0  */
+	/*                   /            /   points-or-contents  /   new/      XXXXXX        \0  */
 
 	char *spool_path = malloc(spool_path_len);
 	if (spool_path == NULL) {
@@ -164,9 +158,15 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 }
 
 int maybe_rotate(marquise_ctx *ctx, spool_type t) {
-	/* If the file is under max size, we're done, else rotate*/
-	if (ctx->bytes_written[t] < MAX_SPOOL_FILE_SIZE) {
-		return 0;
+	/* If the file is under max size, we're done, else rotate */
+	if (t == SPOOL_POINTS) {
+		if (ctx->bytes_written_points < MAX_SPOOL_FILE_SIZE) {
+			return 0;
+		}
+	} else {
+		if (ctx->bytes_written_contents < MAX_SPOOL_FILE_SIZE) {
+			return 0;
+		}
 	}
 
 	const char *spool_type_paths = (t == SPOOL_POINTS) ? "points" : "contents";
@@ -182,9 +182,16 @@ int maybe_rotate(marquise_ctx *ctx, spool_type t) {
 	if (new_spool_path == NULL) {
 		return -1;
 	}
-	free(ctx->spool_path[t]);
-	ctx->spool_path[t]=new_spool_path;
-	ctx->bytes_written[t] = 0;
+
+	if (t == SPOOL_POINTS) {
+		free(ctx->spool_path_points);
+		ctx->spool_path_points = new_spool_path;
+		ctx->bytes_written_points = 0;
+	} else {
+		free(ctx->spool_path_contents);
+		ctx->spool_path_contents = new_spool_path;
+		ctx->bytes_written_contents = 0;
+	}
 	return 0;
 }
 
@@ -215,25 +222,27 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 		(envvar_spool_prefix ==
 		 NULL) ? default_spool_prefix : envvar_spool_prefix;
 
-	ctx->spool_path[SPOOL_POINTS] = build_spool_path(spool_prefix, marquise_namespace, "points");
-	if (ctx->spool_path[SPOOL_POINTS] == NULL) {
+	ctx->spool_path_points = build_spool_path(spool_prefix, marquise_namespace, "points");
+	if (ctx->spool_path_points == NULL) {
 		free_ctx(ctx);
 		return NULL;
 	}
 
-	ctx->spool_path[SPOOL_CONTENTS] = build_spool_path(spool_prefix, marquise_namespace, "contents");
-	if (ctx->spool_path[SPOOL_CONTENTS] == NULL) {
+	ctx->spool_path_contents = build_spool_path(spool_prefix, marquise_namespace, "contents");
+	if (ctx->spool_path_contents == NULL) {
 		free_ctx(ctx);
 		return NULL;
 	}
-	ctx->bytes_written[SPOOL_POINTS] = 0;
-	ctx->bytes_written[SPOOL_CONTENTS] = 0;
+	ctx->bytes_written_points = 0;
+	ctx->bytes_written_contents = 0;
 	ctx->sd_hashes = g_tree_new(hash_comp);
 	return ctx;
 }
 
 int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type t) {
-	FILE *spool = fopen(ctx->spool_path[t], "a");
+	char* spool_path = (t == SPOOL_POINTS) ? ctx->spool_path_points : ctx->spool_path_contents ;
+
+	FILE *spool = fopen(spool_path, "a");
 	if (spool == NULL) {
 		return -1;
 	}
@@ -241,7 +250,12 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
 		fclose(spool);
 		return -1;
 	}
-	ctx->bytes_written[t] += buf_size;
+	if (t == SPOOL_POINTS) {
+		ctx->bytes_written_points += buf_size;
+	}
+	if (t == SPOOL_CONTENTS) {
+		ctx->bytes_written_contents += buf_size;
+	}
 	maybe_rotate(ctx, t);
 	return fclose(spool);
 }
