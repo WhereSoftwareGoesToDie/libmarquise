@@ -90,7 +90,6 @@ void test_cache() {
 		return;
 	}
 
-
 	/* Cleanup */
 	free(init_path);
 	marquise_free_source(test_src);
