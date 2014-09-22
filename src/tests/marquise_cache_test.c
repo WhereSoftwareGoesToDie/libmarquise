@@ -14,6 +14,9 @@ void test_cache() {
 	char* fields[3] = { "foo", "bar", "baz" };
 	char* values[3] = { "one", "two", "three" };
 
+	char* fields2[2] = { "four", "five" };
+	char* values2[2] = { "six", "seven" };
+
 	/* Initialise context */
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
 	marquise_ctx *ctx = marquise_init("marquisetest");
@@ -64,6 +67,31 @@ void test_cache() {
 		g_test_fail();
 		return;
 	}
+
+	marquise_source* test_src2 = marquise_new_source(fields2, values2, 2);
+	if (test_src == NULL) {
+		perror("marquise_new_source failed");
+		g_test_fail();
+		return;
+	}
+
+	init_bytes_written = ctx->bytes_written[SPOOL_CONTENTS];
+
+	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src2);
+	if (ret != 0) {
+		perror("marquise_update_source failed (3rd attempt)");
+		g_test_fail();
+		return;
+	}
+
+	/* Ensure that a sourcedict not in the cache is queued for
+         * update. */
+	if (ctx->bytes_written[SPOOL_CONTENTS] != init_bytes_written + 19) {
+		printf("marquise_update_source failed to queue a non-redundant source dict\n");
+		g_test_fail();
+		return;
+	}
+
 
 	/* Cleanup */
 	free(init_path);
