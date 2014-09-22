@@ -188,8 +188,9 @@ int maybe_rotate(marquise_ctx *ctx, spool_type t) {
 	return 0;
 }
 
-/* Hash comparator for the sourcedict cache*/
-gint hash_comp(gconstpointer a, gconstpointer b) {
+/* Hash comparator for the sourcedict cache. 
+ * We ignore user_data. */
+gint hash_comp(gconstpointer a, gconstpointer b, gpointer user_data) {
 	return *(uint64_t*)a - *(uint64_t*)b;
 }
 
@@ -228,7 +229,7 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	}
 	ctx->bytes_written[SPOOL_POINTS] = 0;
 	ctx->bytes_written[SPOOL_CONTENTS] = 0;
-	ctx->sd_hashes = g_tree_new(hash_comp);
+	ctx->sd_hashes = g_tree_new_full(hash_comp, NULL, free, free);
 	return ctx;
 }
 
@@ -434,12 +435,14 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 		return -1;
 	}
 
-	uint64_t hash = marquise_hash_identifier(serialised_dict, strlen(serialised_dict));
+	uint64_t *hash = malloc(sizeof(uint64_t));
+	*hash = marquise_hash_identifier(serialised_dict, strlen(serialised_dict));
 
 	/* If hash is not present in the cache, add and continue, else early exit*/
-	if (g_tree_lookup(ctx->sd_hashes, (gpointer)&hash) == NULL) {
-		int dummy_value = 1; //Dummy value, could be anything not NULL
-		g_tree_insert(ctx->sd_hashes, (gpointer)&hash, (gpointer)&dummy_value);
+	if (g_tree_lookup(ctx->sd_hashes, (gpointer)hash) == NULL) {
+		int *dummy_value = malloc(sizeof(int)); //Dummy value, could be anything not NULL
+		*dummy_value = 1;
+		g_tree_insert(ctx->sd_hashes, (gpointer)hash, (gpointer)dummy_value);
 	} else {
 		free(serialised_dict);
 		return 0;
