@@ -10,6 +10,7 @@ dist_noinst_HEADERS = siphash24.h
 TESTS=$(check_PROGRAMS)
 check_PROGRAMS=\
 	marquise_init_test \
+	marquise_namespace_test \
 	marquise_hash_test \
 	marquise_util_test \
 	marquise_send_test \
@@ -24,6 +25,9 @@ marquise_hash_test_LDADD = libmarquise.la
 
 marquise_init_test_SOURCES = tests/marquise_init_test.c
 marquise_init_test_LDADD = libmarquise.la
+
+marquise_namespace_test_SOURCES = tests/marquise_namespace_test.c
+marquise_namespace_test_LDADD = libmarquise.la
 
 marquise_util_test_SOURCES = tests/marquise_util_test.c
 marquise_util_test_LDADD = libmarquise.la

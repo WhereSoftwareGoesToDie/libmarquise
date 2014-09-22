@@ -43,8 +43,8 @@ void test_cache() {
 	}
 
 	/* Collect state after 1st dispatch */
-	size_t init_bytes_written = ctx->bytes_written[SPOOL_CONTENTS];
-	char*  init_path = strdup(ctx->spool_path[SPOOL_CONTENTS]);
+	size_t init_bytes_written = ctx->bytes_written_contents;
+	char*  init_path = strdup(ctx->spool_path_contents);
 	if (init_path == NULL) {
 		perror("Failed to strdup() after first sourcedict dispatch");
 		g_test_fail();
@@ -62,7 +62,7 @@ void test_cache() {
 	/* Verify new state, we should NOT have written any new spool data
 	 * thanks to the presence of the sourcedict cache.
 	 */
-	if (ctx->bytes_written[SPOOL_CONTENTS] != init_bytes_written || strcmp(ctx->spool_path[SPOOL_CONTENTS], init_path) != 0) {
+	if (ctx->bytes_written_contents != init_bytes_written || strcmp(ctx->spool_path_contents, init_path) != 0) {
 		printf("marquise_update_source queued a redundant source dict\n");
 		g_test_fail();
 		return;

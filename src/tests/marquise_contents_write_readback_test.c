@@ -56,7 +56,7 @@ void test_contents_write_readback() {
 
 
 	// Finalise and save spool path
-	char* written_spool_path = strdup(ctx->spool_path[SPOOL_CONTENTS]);
+	char* written_spool_path = strdup(ctx->spool_path_contents);
 	if (written_spool_path == NULL) {
 		perror("failed to strdup ctx->spool_path_contents");
 		g_test_fail();
