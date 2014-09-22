@@ -74,7 +74,7 @@ void test_cache() {
 		g_test_fail();
 		return;
 	}
-	init_bytes_written = ctx->bytes_written[SPOOL_CONTENTS];
+	init_bytes_written = ctx->bytes_written_contents;
 	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src2);
 	if (ret != 0) {
 		perror("marquise_update_source failed (3rd attempt)");
@@ -84,7 +84,7 @@ void test_cache() {
 
 	/* Ensure that a sourcedict not in the cache is queued for
          * update. */
-	if (ctx->bytes_written[SPOOL_CONTENTS] != init_bytes_written + 35) {
+	if (ctx->bytes_written_contents != init_bytes_written + 35) {
 		printf("marquise_update_source failed to queue a non-redundant source dict\n");
 		g_test_fail();
 		return;
