@@ -35,7 +35,7 @@ void test_cache() {
 	}
 
 	/* Dispatch sourcedict */
-	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src);
+	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src, EXTENDED_POINT);
 	if (ret != 0) {
 		perror("marquise_update_source failed (1st attempt)");
 		g_test_fail();
@@ -52,7 +52,7 @@ void test_cache() {
 	}
 
 	/* Dispatch again */
-	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src);
+	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src, EXTENDED_POINT);
 	if (ret != 0) {
 		perror("marquise_update_source failed (2nd attempt)");
 		g_test_fail();
@@ -75,7 +75,7 @@ void test_cache() {
 		return;
 	}
 	init_bytes_written = ctx->bytes_written_contents;
-	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src2);
+	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src2, EXTENDED_POINT);
 	if (ret != 0) {
 		perror("marquise_update_source failed (3rd attempt)");
 		g_test_fail();
