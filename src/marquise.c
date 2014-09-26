@@ -445,7 +445,7 @@ char *serialise_marquise_source(marquise_source *source)
 	return serialised_dict;
 }
 
-int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source)
+int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source, point_type t)
 {
 	/* Appends the source_dict to the spool_path_contents file.
 
@@ -489,6 +489,15 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 	if (buf == NULL) {
 		free(serialised_dict);
 		return -1;
+	}
+
+	/* Fix the address. Simple points have even addresses,
+	 * extended points have odd addresses.
+	 */
+	if (t == SIMPLE_POINT) {
+		address = address >> 1 << 1;
+	} else { /* t == EXTENDED_POINT */
+		address |= 1;
 	}
 
 	/* Build the buffer. */

@@ -45,7 +45,7 @@ void test_contents_write_readback() {
 		return;
 	}
 
-	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src);
+	ret = marquise_update_source(ctx, TEST_ADDRESS, test_src, EXTENDED_POINT);
 	if (ret != 0) {
 		perror("marquise_update_source failed");
 		g_test_fail();
