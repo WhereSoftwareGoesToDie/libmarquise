@@ -18,6 +18,10 @@
 #define SPOOL_CONTENTS 1
 typedef int spool_type;
 
+#define SIMPLE_POINT   0
+#define EXTENDED_POINT 1
+typedef int point_type;
+
 typedef struct {
 	char *marquise_namespace;
 	char *spool_path_points;
@@ -75,7 +79,7 @@ int marquise_send_extended(marquise_ctx *ctx, uint64_t address, uint64_t timesta
  * responsible for freeing the source (using `marquise_free_source`).
  * Returns zero on success, nonzero on failure.
  */
-int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source);
+int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source *source, point_type t);
 
 /* Clean up, flush, close and free. Zero on success, nonzero on
  * other things. */
