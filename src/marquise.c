@@ -90,7 +90,8 @@ uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len)
 {
 	unsigned char key[16];
 	memset(key, 0, 16);
-	return siphash(id, id_len, key);
+	uint64_t addr = siphash(id, id_len, key);
+	return addr >> 1 << 1;
 }
 
 char *build_spool_path(const char *spool_prefix, char *namespace, const char* spool_type)
@@ -490,9 +491,6 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 		free(serialised_dict);
 		return -1;
 	}
-
-	/* Fix the address, all sourcedicts have the LSB set to zero. */
-	address = address >> 1 << 1;
 
 	/* Build the buffer. */
 	U64TO8_LE(buf, address);

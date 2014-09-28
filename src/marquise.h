@@ -47,7 +47,8 @@ void marquise_free_source(marquise_source *source);
 
 /* Return the SipHash-2-4[0] of an array of bytes, suitable to use as an
  * address. Note that only the 63 most significant bits of this address
- * are unique; the LSB is used as a flag for an extended datapoint.
+ * are unique; the LSB is used as a flag for an extended datapoint. The
+ * LSB of the hash returned will be cleared for consistency purposes.
  *
  * [0] https://131002.net/siphash/
  */
