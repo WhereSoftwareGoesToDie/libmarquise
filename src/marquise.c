@@ -492,6 +492,9 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 		return -1;
 	}
 
+	/* Fix the address, all sourcedicts have the LSB set to zero. */
+	address = address >> 1 << 1;
+
 	/* Build the buffer. */
 	U64TO8_LE(buf, address);
 	U64TO8_LE(buf + sizeof(address), serialised_dict_len);
