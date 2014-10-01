@@ -198,7 +198,7 @@ int maybe_rotate(marquise_ctx *ctx, spool_type t) {
 	return 0;
 }
 
-/* Hash comparator for the sourcedict cache. 
+/* Hash comparator for the sourcedict cache.
  * We ignore user_data. */
 gint hash_comp(gconstpointer a, gconstpointer b, gpointer user_data) {
 	return *(uint64_t*)a - *(uint64_t*)b;
