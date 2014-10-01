@@ -473,6 +473,7 @@ int marquise_update_source(marquise_ctx *ctx, uint64_t address, marquise_source 
 		g_tree_insert(ctx->sd_hashes, (gpointer)hash, (gpointer)dummy_value);
 	} else {
 		free(serialised_dict);
+		free(hash);
 		return 0;
 	}
 
