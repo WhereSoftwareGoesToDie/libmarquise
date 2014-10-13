@@ -253,9 +253,15 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	return ctx;
 }
 
+/* Writes a point (either simple or extended) to the current spool file.
+ * If (post-write) the amount of data we've written to the current spool
+ * file exceeds MAX_SPOOL_FILE_SIZE, set a new spool file as current for
+ * next time.
+ *
+ * Returns zero on success, -1 on error.
+ */
 int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type t) {
 	char* spool_path = (t == SPOOL_POINTS) ? ctx->spool_path_points : ctx->spool_path_contents ;
-
 	FILE *spool = fopen(spool_path, "a");
 	if (spool == NULL) {
 		return -1;
@@ -268,9 +274,19 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
 		ctx->bytes_written_points += buf_size;
 	} else if (t == SPOOL_CONTENTS) {
 		ctx->bytes_written_contents += buf_size;
+	} else {
+		/* We were passed an invalid spool_type, shouldn't ever
+		 * happen as this function isn't exposed. */
+		errno = EINVAL;
+		return -1;
 	}
 	maybe_rotate(ctx, t);
-	return fclose(spool);
+	int ret = fclose(spool);
+	if (ret != 0) {
+		return -1;
+	} else {
+		return 0;
+	}
 }
 
 int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
