@@ -253,7 +253,8 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	return ctx;
 }
 
-/* Writes a point (either simple or extended) to the current spool file.
+/* Writes the context of buf (representing an already-serialized
+ * datapoint, either simple or extended) to the current spool file. 
  * If (post-write) the amount of data we've written to the current spool
  * file exceeds MAX_SPOOL_FILE_SIZE, set a new spool file as current for
  * next time.
@@ -277,6 +278,7 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
 	} else {
 		/* We were passed an invalid spool_type, shouldn't ever
 		 * happen as this function isn't exposed. */
+		fclose(spool);
 		errno = EINVAL;
 		return -1;
 	}
