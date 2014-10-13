@@ -266,8 +266,7 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
 	}
 	if (t == SPOOL_POINTS) {
 		ctx->bytes_written_points += buf_size;
-	}
-	if (t == SPOOL_CONTENTS) {
+	} else if (t == SPOOL_CONTENTS) {
 		ctx->bytes_written_contents += buf_size;
 	}
 	maybe_rotate(ctx, t);
