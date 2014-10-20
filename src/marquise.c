@@ -259,7 +259,8 @@ marquise_ctx *marquise_init(char *marquise_namespace)
  * file exceeds MAX_SPOOL_FILE_SIZE, set a new spool file as current for
  * next time.
  *
- * Returns zero on success, -1 on error.
+ * Returns zero on success, -1 on error, or panics and exits with status
+ * 1 if passed an invalid spool type.
  */
 int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type t) {
 	char* spool_path = (t == SPOOL_POINTS) ? ctx->spool_path_points : ctx->spool_path_contents ;
@@ -278,17 +279,12 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
 	} else {
 		/* We were passed an invalid spool_type, shouldn't ever
 		 * happen as this function isn't exposed. */
+		fprintf(stderr, "rotating_write: passed an invalid spool type %d, this can't happen. Please report a bug.\n", t);
 		fclose(spool);
-		errno = EINVAL;
-		return -1;
+		exit(1);
 	}
 	maybe_rotate(ctx, t);
-	int ret = fclose(spool);
-	if (ret != 0) {
-		return -1;
-	} else {
-		return 0;
-	}
+	return fclose(spool) ? -1 : 0;
 }
 
 int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
