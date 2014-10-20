@@ -281,7 +281,7 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
 		 * happen as this function isn't exposed. */
 		fprintf(stderr, "rotating_write: passed an invalid spool type %d, this can't happen. Please report a bug.\n", t);
 		fclose(spool);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	maybe_rotate(ctx, t);
 	return fclose(spool) ? -1 : 0;
