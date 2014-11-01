@@ -253,9 +253,17 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	return ctx;
 }
 
+/* Writes the context of buf (representing an already-serialized
+ * datapoint, either simple or extended) to the current spool file. 
+ * If (post-write) the amount of data we've written to the current spool
+ * file exceeds MAX_SPOOL_FILE_SIZE, set a new spool file as current for
+ * next time.
+ *
+ * Returns zero on success, -1 on error, or panics and exits with status
+ * 1 if passed an invalid spool type.
+ */
 int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type t) {
 	char* spool_path = (t == SPOOL_POINTS) ? ctx->spool_path_points : ctx->spool_path_contents ;
-
 	FILE *spool = fopen(spool_path, "a");
 	if (spool == NULL) {
 		return -1;
@@ -266,12 +274,17 @@ int rotating_write(marquise_ctx * ctx, uint8_t *buf, size_t buf_size, spool_type
 	}
 	if (t == SPOOL_POINTS) {
 		ctx->bytes_written_points += buf_size;
-	}
-	if (t == SPOOL_CONTENTS) {
+	} else if (t == SPOOL_CONTENTS) {
 		ctx->bytes_written_contents += buf_size;
+	} else {
+		/* We were passed an invalid spool_type, shouldn't ever
+		 * happen as this function isn't exposed. */
+		fprintf(stderr, "rotating_write: passed an invalid spool type %d, this can't happen. Please report a bug.\n", t);
+		fclose(spool);
+		exit(EXIT_FAILURE);
 	}
 	maybe_rotate(ctx, t);
-	return fclose(spool);
+	return fclose(spool) ? -1 : 0;
 }
 
 int marquise_send_simple(marquise_ctx * ctx, uint64_t address,
