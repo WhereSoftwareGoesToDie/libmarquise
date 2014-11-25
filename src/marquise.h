@@ -12,6 +12,7 @@
 #include <glib.h>
 
 #define MARQUISE_SPOOL_DIR "/var/spool/marquise"
+#define MARQUISE_LOCK_DIR "/var/run/marquise"
 #define MAX_SPOOL_FILE_SIZE 1024*1024
 
 #define SPOOL_POINTS   0
@@ -22,6 +23,8 @@ typedef struct {
 	char *marquise_namespace;
 	char *spool_path_points;
 	char *spool_path_contents;
+	char *lock_path;
+	int   lock_fd;
 	size_t bytes_written_points;
 	size_t bytes_written_contents;
 	GTree *sd_hashes;

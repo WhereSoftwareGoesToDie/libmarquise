@@ -30,6 +30,7 @@ void test_send_simple() {
 		g_test_fail();
 		return;
 	}
+	marquise_shutdown(ctx);
 }
 
 void test_send_extended() {
@@ -46,6 +47,7 @@ void test_send_extended() {
 		g_test_fail();
 		return;
 	}
+	marquise_shutdown(ctx);
 }
 
 int main(int argc, char **argv) {

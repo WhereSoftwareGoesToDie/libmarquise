@@ -43,6 +43,7 @@ void test_rotate() {
 		 g_test_fail();
 		 return;
 	}
+	marquise_shutdown(ctx);
 }
 
 int main(int argc, char **argv) {

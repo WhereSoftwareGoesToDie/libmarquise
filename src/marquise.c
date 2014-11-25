@@ -14,6 +14,9 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <glib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/file.h>
 
 #include "siphash24.h"
 #include "marquise.h"
@@ -92,6 +95,77 @@ uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len)
 	memset(key, 0, 16);
 	uint64_t addr = siphash(id, id_len, key);
 	return addr >> 1 << 1;
+}
+
+char *build_lock_path(const char *lock_prefix, char *namespace)
+{
+	int ret;
+
+	const char* pathsep = "/";
+	const char* lock_ext = ".lock";
+
+	size_t prefix_len    = strlen(lock_prefix);
+	size_t namespace_len = strlen(namespace);
+	size_t ext_len       = strlen(lock_ext);
+
+	size_t lock_path_len =
+		prefix_len + 1 + namespace_len + ext_len + 1;
+	/*      prefix       /   (namespace)     .lock     \0    */
+
+	char *lock_path = malloc(lock_path_len);
+	if (lock_path == NULL) {
+		return NULL;
+	}
+
+	char* lock_path_end = lock_path;
+
+	/* Ensure the string is always null-terminated. */
+	memset(lock_path, '\0', lock_path_len);
+
+	lock_path_end = stpncpy(lock_path_end, lock_prefix, prefix_len);    /* /prefix                */
+	lock_path_end = stpncpy(lock_path_end, pathsep,     1);             /* /prefix/               */
+
+	ret = mkdirp(lock_path);
+	if (ret != 0) {
+		free(lock_path);
+		return NULL;
+	}
+
+	lock_path_end = stpncpy(lock_path_end, namespace,   namespace_len); /* /prefix/namspace       */
+	lock_path_end = stpncpy(lock_path_end, lock_ext,    ext_len);       /* /prefix/namespace.lock */
+
+	return lock_path;
+}
+
+/* Attempt to create and lock a file at lock_path
+   Fail if file exists with a lock (someone else is here right now) */
+int lock_namespace(const char *lock_path)
+{
+	int fd = open(lock_path, O_RDWR | O_CREAT, 0600);
+
+
+	// Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out.
+	if (flock(fd, LOCK_EX | LOCK_NB)) {
+		if (errno == EACCES || errno == EAGAIN) {
+
+			char existing_pid[10];
+			read(fd, existing_pid, 10);
+
+			fprintf(stderr, "lock_namespace: %s is locked by process %s. This process will exit.\n", lock_path, existing_pid);
+			return 0;
+		}
+	}
+
+	// Write the current process ID into the lockfile
+	char buf[10];
+	sprintf(buf, "%d\n", getpid());
+
+	// Confirm the write function output (bytes written) equals what's expected
+	if (write(fd, buf, strlen(buf)) != strlen(buf)) {
+		return 0;
+	}
+
+	return fd;
 }
 
 char *build_spool_path(const char *spool_prefix, char *namespace, const char* spool_type)
@@ -218,6 +292,8 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	ctx->marquise_namespace = NULL;
 	ctx->spool_path_points = NULL;
 	ctx->spool_path_contents = NULL;
+	ctx->lock_path = NULL;
+	ctx->lock_fd = 0;
 	ctx->sd_hashes = NULL;
 
 	if (!valid_namespace(marquise_namespace)) {
@@ -230,6 +306,29 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 		free_ctx(ctx);
 		return NULL;
 	}
+
+	/* Create the lock for this namespace */
+	const char *envvar_lock_prefix = getenv("MARQUISE_LOCK_DIR");
+	const char *default_lock_prefix = MARQUISE_LOCK_DIR;
+	const char *lock_prefix =
+		(envvar_lock_prefix ==
+		 NULL) ? default_lock_prefix : envvar_lock_prefix;
+
+	ctx->lock_path = build_lock_path(lock_prefix, marquise_namespace);
+
+	if (ctx->lock_path == NULL) {
+		free_ctx(ctx);
+		return NULL;
+	}
+
+	/* Exit out if namespace lock doesn't work - someone else is here */
+	ctx->lock_fd = lock_namespace(ctx->lock_path);
+	if (ctx->lock_fd == 0) {
+		free_ctx(ctx);
+		return NULL;
+	}
+
+	/* Create spool dir, et al */
 	const char *envvar_spool_prefix = getenv("MARQUISE_SPOOL_DIR");
 	const char *default_spool_prefix = MARQUISE_SPOOL_DIR;
 	const char *spool_prefix =
@@ -254,7 +353,7 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 }
 
 /* Writes the context of buf (representing an already-serialized
- * datapoint, either simple or extended) to the current spool file. 
+ * datapoint, either simple or extended) to the current spool file.
  * If (post-write) the amount of data we've written to the current spool
  * file exceeds MAX_SPOOL_FILE_SIZE, set a new spool file as current for
  * next time.
@@ -329,6 +428,16 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 
 int marquise_shutdown(marquise_ctx * ctx)
 {
+	// Unlock the file descriptor if it still exists (may have died/never been opened)
+	int ret = fcntl(ctx->lock_fd, F_GETFD);
+	if (ret > 0) {
+		flock(ctx->lock_fd, LOCK_UN);
+	}
+
+	// Unlink the file
+	unlink(ctx->lock_path);
+
+	//Run! Be free!
 	free_ctx(ctx);
 	return 0;
 }
