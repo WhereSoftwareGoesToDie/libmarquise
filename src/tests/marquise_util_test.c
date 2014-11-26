@@ -8,6 +8,7 @@
 
 extern uint8_t valid_namespace(char *namespace);
 extern uint8_t valid_source_tag(char *tag);
+extern char* build_lock_path(const char *lock_prefix, char *namespace);
 extern char* build_spool_path(const char *spool_prefix, char *namespace, const char* spool_type);
 extern char* serialise_marquise_source(marquise_source *source);
 
@@ -31,6 +32,27 @@ void test_invalid_source_tag() {
 void test_invalid_namespace() {
 	int ret = valid_namespace("a_b");
 	g_assert_cmpint(ret, ==, 0);
+}
+
+void test_build_lock_path() {
+	const char *prefix = "/tmp";
+	char *namespace = "marquise";
+	char *expected_lock_path = "/tmp/marquise.lock";
+
+	char *lock_path = build_lock_path(prefix, namespace);
+	if (lock_path == NULL) {
+		perror("lock_path returned NULL when building lock path");
+		free(lock_path);
+		g_test_fail();
+		return;
+	}
+
+	if (strncmp(lock_path, expected_lock_path, strlen(expected_lock_path)) != 0) {
+		printf("Got 'lock path %s, expected path %s\n", lock_path, expected_lock_path);
+		free(lock_path);
+		g_test_fail();
+		return;
+	}
 }
 
 void test_build_spool_path() {

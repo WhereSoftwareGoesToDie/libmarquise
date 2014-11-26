@@ -100,6 +100,7 @@ uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len)
 
 /* Build up the the folder structure for the lock file, ensuring parent folder exists.
  * Return NULL on failure
+ * Return the path to the lock file on success
  */
 char *build_lock_path(const char *lock_prefix, char *namespace)
 {
@@ -142,13 +143,14 @@ char *build_lock_path(const char *lock_prefix, char *namespace)
 
 /* Attempt to create and lock a file at lock_path
  * Fail if file exists with a lock (someone else is here right now) and return -1
+ * Return the file descriptor on success
  */
 int lock_namespace(const char *lock_path)
 {
 	int fd = open(lock_path, O_RDWR | O_CREAT, 0600);
-	int len = (1 << (sizeof(pid_t) - 1));
+	int len = (sizeof(pid_t) * 8);
 
-	// Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out.
+	/* Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out. */
 	if (flock(fd, LOCK_EX | LOCK_NB)) {
 		if (errno == EACCES || errno == EAGAIN) {
 			char existing_pid[len];
@@ -159,11 +161,11 @@ int lock_namespace(const char *lock_path)
 		}
 	}
 
-	// Write the current process ID into the lockfile
+	/* Write the current process ID into the lockfile */
 	char buf[len];
 	sprintf(buf, "%d\n", getpid());
 
-	// Confirm the write function output (bytes written) equals what's expected
+	/* Confirm the write function output (bytes written) equals what's expected */
 	if (write(fd, buf, strlen(buf)) != strlen(buf)) {
 		return -1;
 	}
@@ -220,7 +222,7 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 	}
 
 	spool_path_end = stpncpy(spool_path_end, new, new_len);                /*  /prefix/namespace/{points,contents}/new/  */
-	// Create new path if it doesn't exist.
+	/* Create new path if it doesn't exist. */
 	ret = mkdirp(spool_path);  /* See above. */
 	if (ret != 0) {
 		free(spool_path);
@@ -416,8 +418,7 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 {
 	size_t buf_len = 24 + value_len;
 	if (buf_len < value_len) {
-		// Overflow
-		errno = EINVAL;
+		errno = EINVAL; 	// Overflow
 		return -1;
 	}
 
@@ -440,12 +441,20 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 
 int marquise_shutdown(marquise_ctx * ctx)
 {
-	int ret = fcntl(ctx->lock_fd, F_GETFD);
-	if (ret > 0) {
-		flock(ctx->lock_fd, LOCK_UN);
+	int ret = 0;
+	if (fcntl(ctx->lock_fd, F_GETFD) > 0) {
+		ret = flock(ctx->lock_fd, LOCK_UN);
+		if (ret != 0) {
+			return -1;
+		}
 	}
 
-	unlink(ctx->lock_path);
+	if (access(ctx->lock_path, F_OK) != -1) {
+		ret = unlink(ctx->lock_path);
+		if (ret != 0) {
+			return -1;
+		}
+	}
 
 	free_ctx(ctx);
 	return 0;
