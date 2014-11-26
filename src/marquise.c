@@ -97,6 +97,8 @@ uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len)
 	return addr >> 1 << 1;
 }
 
+/* Build up the the folder structure for the lock file, ensuring parent folder exists.
+ */
 char *build_lock_path(const char *lock_prefix, char *namespace)
 {
 	int ret;
@@ -108,12 +110,11 @@ char *build_lock_path(const char *lock_prefix, char *namespace)
 	size_t namespace_len = strlen(namespace);
 	size_t ext_len       = strlen(lock_ext);
 
-	size_t lock_path_len =
-		prefix_len + 1 + namespace_len + ext_len + 1;
-	/*      prefix       /   (namespace)     .lock     \0    */
+	/*                     prefix       /   (namespace)     .lock     \0    */
+	size_t lock_path_len = prefix_len + 1 + namespace_len + ext_len + 1;
 
 	char *lock_path = malloc(lock_path_len);
-	if (lock_path == NULL) {
+	if (lock_path == NULL) { // error allocating memeory
 		return NULL;
 	}
 
@@ -138,21 +139,20 @@ char *build_lock_path(const char *lock_prefix, char *namespace)
 }
 
 /* Attempt to create and lock a file at lock_path
-   Fail if file exists with a lock (someone else is here right now) */
+ * Fail if file exists with a lock (someone else is here right now) and return -1
+ */
 int lock_namespace(const char *lock_path)
 {
 	int fd = open(lock_path, O_RDWR | O_CREAT, 0600);
 
-
 	// Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out.
 	if (flock(fd, LOCK_EX | LOCK_NB)) {
 		if (errno == EACCES || errno == EAGAIN) {
-
 			char existing_pid[10];
 			read(fd, existing_pid, 10);
 
 			fprintf(stderr, "lock_namespace: %s is locked by process %s. This process will exit.\n", lock_path, existing_pid);
-			return 0;
+			return -1;
 		}
 	}
 
@@ -162,7 +162,7 @@ int lock_namespace(const char *lock_path)
 
 	// Confirm the write function output (bytes written) equals what's expected
 	if (write(fd, buf, strlen(buf)) != strlen(buf)) {
-		return 0;
+		return -1;
 	}
 
 	return fd;
@@ -310,9 +310,7 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	/* Create the lock for this namespace */
 	const char *envvar_lock_prefix = getenv("MARQUISE_LOCK_DIR");
 	const char *default_lock_prefix = MARQUISE_LOCK_DIR;
-	const char *lock_prefix =
-		(envvar_lock_prefix ==
-		 NULL) ? default_lock_prefix : envvar_lock_prefix;
+	const char *lock_prefix = (envvar_lock_prefix == NULL) ? default_lock_prefix : envvar_lock_prefix;
 
 	ctx->lock_path = build_lock_path(lock_prefix, marquise_namespace);
 
@@ -323,7 +321,7 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 
 	/* Exit out if namespace lock doesn't work - someone else is here */
 	ctx->lock_fd = lock_namespace(ctx->lock_path);
-	if (ctx->lock_fd == 0) {
+	if (ctx->lock_fd == -1) {
 		free_ctx(ctx);
 		return NULL;
 	}
