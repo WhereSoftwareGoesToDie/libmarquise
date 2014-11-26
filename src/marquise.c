@@ -221,7 +221,7 @@ char *build_spool_path(const char *spool_prefix, char *namespace, const char* sp
 	}
 
 	spool_path_end = stpncpy(spool_path_end, new, new_len);                /*  /prefix/namespace/{points,contents}/new/  */
-	// Create new path if it doesn't exist.
+	/* Create new path if it doesn't exist. */
 	ret = mkdirp(spool_path);  /* See above. */
 	if (ret != 0) {
 		free(spool_path);
@@ -406,8 +406,7 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 {
 	size_t buf_len = 24 + value_len;
 	if (buf_len < value_len) {
-		// Overflow
-		errno = EINVAL;
+		errno = EINVAL; 	// Overflow
 		return -1;
 	}
 
