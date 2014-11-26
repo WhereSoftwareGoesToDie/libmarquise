@@ -147,7 +147,7 @@ int lock_namespace(const char *lock_path)
 	int fd = open(lock_path, O_RDWR | O_CREAT, 0600);
 	int len = (sizeof(pid_t) * 8);
 
-	// Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out.
+	/* Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out. */
 	if (flock(fd, LOCK_EX | LOCK_NB)) {
 		if (errno == EACCES || errno == EAGAIN) {
 			char existing_pid[len];
@@ -158,11 +158,11 @@ int lock_namespace(const char *lock_path)
 		}
 	}
 
-	// Write the current process ID into the lockfile
+	/* Write the current process ID into the lockfile */
 	char buf[len];
 	sprintf(buf, "%d\n", getpid());
 
-	// Confirm the write function output (bytes written) equals what's expected
+	/* Confirm the write function output (bytes written) equals what's expected */
 	if (write(fd, buf, strlen(buf)) != strlen(buf)) {
 		return -1;
 	}
