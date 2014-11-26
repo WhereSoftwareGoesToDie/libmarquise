@@ -17,6 +17,7 @@
 
 void test_send_simple() {
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
@@ -35,6 +36,7 @@ void test_send_simple() {
 
 void test_send_extended() {
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {

@@ -20,6 +20,7 @@ void test_rotate() {
 	int max_simple_per_file = (MAX_SPOOL_FILE_SIZE-1) / 24;
 	int i;
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
 		printf("marquise_init failed: %s\n", strerror(errno));
