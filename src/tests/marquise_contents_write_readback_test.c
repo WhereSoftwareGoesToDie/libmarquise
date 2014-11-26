@@ -29,6 +29,7 @@ void test_contents_write_readback() {
 
 	// Init
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
 		perror("marquise_init failed");
