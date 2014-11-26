@@ -99,6 +99,7 @@ uint64_t marquise_hash_identifier(const unsigned char *id, size_t id_len)
 
 /* Build up the the folder structure for the lock file, ensuring parent folder exists.
  * Return NULL on failure
+ * Return the path to the lock file on success
  */
 char *build_lock_path(const char *lock_prefix, char *namespace)
 {
@@ -141,6 +142,7 @@ char *build_lock_path(const char *lock_prefix, char *namespace)
 
 /* Attempt to create and lock a file at lock_path
  * Fail if file exists with a lock (someone else is here right now) and return -1
+ * Return the file descriptor on success
  */
 int lock_namespace(const char *lock_path)
 {
