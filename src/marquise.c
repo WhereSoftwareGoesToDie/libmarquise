@@ -428,16 +428,13 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 
 int marquise_shutdown(marquise_ctx * ctx)
 {
-	// Unlock the file descriptor if it still exists (may have died/never been opened)
 	int ret = fcntl(ctx->lock_fd, F_GETFD);
 	if (ret > 0) {
 		flock(ctx->lock_fd, LOCK_UN);
 	}
 
-	// Unlink the file
 	unlink(ctx->lock_path);
 
-	//Run! Be free!
 	free_ctx(ctx);
 	return 0;
 }
