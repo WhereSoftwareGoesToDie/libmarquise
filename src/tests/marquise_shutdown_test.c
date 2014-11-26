@@ -8,6 +8,7 @@
 
 void test_shutdown() {
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
 		printf("marquise_init failed: %s\n", strerror(errno));
