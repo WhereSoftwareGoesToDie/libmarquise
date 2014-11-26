@@ -433,7 +433,9 @@ int marquise_shutdown(marquise_ctx * ctx)
 		flock(ctx->lock_fd, LOCK_UN);
 	}
 
-	unlink(ctx->lock_path);
+	if (access(ctx->lock_path, F_OK) != -1) {
+		unlink(ctx->lock_path);
+	}
 
 	free_ctx(ctx);
 	return 0;
