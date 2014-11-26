@@ -429,13 +429,19 @@ int marquise_send_extended(marquise_ctx * ctx, uint64_t address,
 
 int marquise_shutdown(marquise_ctx * ctx)
 {
-	int ret = fcntl(ctx->lock_fd, F_GETFD);
-	if (ret > 0) {
-		flock(ctx->lock_fd, LOCK_UN);
+	int ret = 0;
+	if (fcntl(ctx->lock_fd, F_GETFD) > 0) {
+		ret = flock(ctx->lock_fd, LOCK_UN);
+		if (ret != 0) {
+			return -1;
+		}
 	}
 
 	if (access(ctx->lock_path, F_OK) != -1) {
-		unlink(ctx->lock_path);
+		ret = unlink(ctx->lock_path);
+		if (ret != 0) {
+			return -1;
+		}
 	}
 
 	free_ctx(ctx);
