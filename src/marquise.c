@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <stdbool.h>
 
 #include "siphash24.h"
 #include "marquise.h"
@@ -144,7 +145,7 @@ char *build_lock_path(const char *lock_prefix, char *namespace)
 int lock_namespace(const char *lock_path)
 {
 	int fd = open(lock_path, O_RDWR | O_CREAT, 0600);
-	int len = (1 << sizeof(pid_t) - 1);
+	int len = (1 << (sizeof(pid_t) - 1));
 
 	// Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out.
 	if (flock(fd, LOCK_EX | LOCK_NB)) {
@@ -309,22 +310,33 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	}
 
 	/* Create the lock for this namespace */
-	const char *envvar_lock_prefix = getenv("MARQUISE_LOCK_DIR");
-	const char *default_lock_prefix = MARQUISE_LOCK_DIR;
-	const char *lock_prefix = (envvar_lock_prefix == NULL) ? default_lock_prefix : envvar_lock_prefix;
+	const int envvar_disable_namespace_lock = (int)getenv("DISABLE_NAMESPACE_LOCK");
+	const int default_disable_namespace_lock = DISABLE_NAMESPACE_LOCK;
+	const int disable_namespace_lock =
+		(envvar_disable_namespace_lock == NULL ? default_disable_namespace_lock : envvar_disable_namespace_lock);
 
-	ctx->lock_path = build_lock_path(lock_prefix, marquise_namespace);
+	if (disable_namespace_lock == 1) {
+		printf("DISABLE_NAMESPACE_LOCK invoked. This process will not lock on the namespace %s", ctx->marquise_namespace);
+	} else {
+		/* Lock the namespace so another process cannot access it */
+		const char *envvar_lock_prefix = getenv("MARQUISE_LOCK_DIR");
+		const char *default_lock_prefix = MARQUISE_LOCK_DIR;
+		const char *lock_prefix = (envvar_lock_prefix == NULL) ? default_lock_prefix : envvar_lock_prefix;
 
-	if (ctx->lock_path == NULL) {
-		free_ctx(ctx);
-		return NULL;
-	}
+		ctx->lock_path = build_lock_path(lock_prefix, marquise_namespace);
 
-	/* Exit out if namespace lock doesn't work - someone else is here */
-	ctx->lock_fd = lock_namespace(ctx->lock_path);
-	if (ctx->lock_fd == -1) {
-		free_ctx(ctx);
-		return NULL;
+		if (ctx->lock_path == NULL) {
+			free_ctx(ctx);
+			return NULL;
+		}
+
+		/* Exit out if namespace lock doesn't work - someone else is here */
+		ctx->lock_fd = lock_namespace(ctx->lock_path);
+		if (ctx->lock_fd == -1) {
+			free_ctx(ctx);
+			return NULL;
+		}
+
 	}
 
 	/* Create spool dir, et al */
