@@ -145,7 +145,7 @@ char *build_lock_path(const char *lock_prefix, char *namespace)
 int lock_namespace(const char *lock_path)
 {
 	int fd = open(lock_path, O_RDWR | O_CREAT, 0600);
-	int len = (1 << sizeof(pid_t) - 1);
+	int len = (sizeof(pid_t) * 8);
 
 	// Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out.
 	if (flock(fd, LOCK_EX | LOCK_NB)) {
