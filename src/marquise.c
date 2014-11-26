@@ -144,12 +144,13 @@ char *build_lock_path(const char *lock_prefix, char *namespace)
 int lock_namespace(const char *lock_path)
 {
 	int fd = open(lock_path, O_RDWR | O_CREAT, 0600);
+	int len = (1 << sizeof(pid_t) - 1);
 
 	// Attempt to lock the file. If we fail due to access issues, then we're a duplicate, error out.
 	if (flock(fd, LOCK_EX | LOCK_NB)) {
 		if (errno == EACCES || errno == EAGAIN) {
-			char existing_pid[10];
-			read(fd, existing_pid, 10);
+			char existing_pid[len];
+			read(fd, existing_pid, len);
 
 			fprintf(stderr, "lock_namespace: %s is locked by process %s. This process will exit.\n", lock_path, existing_pid);
 			return -1;
@@ -157,7 +158,7 @@ int lock_namespace(const char *lock_path)
 	}
 
 	// Write the current process ID into the lockfile
-	char buf[10];
+	char buf[len];
 	sprintf(buf, "%d\n", getpid());
 
 	// Confirm the write function output (bytes written) equals what's expected
