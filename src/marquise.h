@@ -13,6 +13,7 @@
 
 #define MARQUISE_SPOOL_DIR "/var/spool/marquise"
 #define MARQUISE_LOCK_DIR "/var/run/marquise"
+#define DISABLE_NAMESPACE_LOCK false
 #define MAX_SPOOL_FILE_SIZE 1024*1024
 
 #define SPOOL_POINTS   0
