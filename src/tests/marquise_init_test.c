@@ -53,6 +53,7 @@ void test_lock_dir_twice() {
 	marquise_ctx *ctx2 = marquise_init("marquisetest4");
 	if (ctx2 != NULL) { /* We expect this to fail. Let us know if it doesn't. */
 		printf("marquise_init failed: %s\n", strerror(errno));
+		g_test_fail();
 	}
 
 	//A new namespace will work
@@ -65,6 +66,28 @@ void test_lock_dir_twice() {
 	// clean up all the things
 	marquise_shutdown(ctx);
 	marquise_shutdown(ctx3);
+}
+
+void test_disable_namespace_lock() {
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
+	setenv("DISABLE_NAMESPACE_LOCK", 0, 1);
+
+	// Make two instances, but disable the namespace lock. This should be successful
+	marquise_ctx *ctx = marquise_init("marquisetest6");
+	if (ctx == NULL) {
+		printf("marquise_init failed: %s\n", strerror(errno));
+		g_test_fail();
+	}
+
+	marquise_ctx *ctx2 = marquise_init("marquisetest6");
+	if (ctx2 == NULL) {
+		printf("marquise_init failed: %s\n", strerror(errno));
+		g_test_fail();
+	}
+
+	// clean up all the things
+	marquise_shutdown(ctx);
+	marquise_shutdown(ctx2);
 }
 
 int main(int argc, char **argv) {
