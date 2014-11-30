@@ -90,7 +90,6 @@ void test_disable_namespace_lock() {
 	marquise_shutdown(ctx2);
 }
 
-
 int main(int argc, char **argv) {
 	g_test_init(&argc, &argv, NULL);
 	g_test_add_func("/marquise_init/init", test_init);
