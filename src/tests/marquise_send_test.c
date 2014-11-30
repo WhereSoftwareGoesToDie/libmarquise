@@ -17,6 +17,7 @@
 
 void test_send_simple() {
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
@@ -30,10 +31,12 @@ void test_send_simple() {
 		g_test_fail();
 		return;
 	}
+	marquise_shutdown(ctx);
 }
 
 void test_send_extended() {
 	setenv("MARQUISE_SPOOL_DIR", "/tmp", 1);
+	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
 	mkdir("/tmp/marquisetest", 0700);
 	marquise_ctx *ctx = marquise_init("marquisetest");
 	if (ctx == NULL) {
@@ -46,6 +49,7 @@ void test_send_extended() {
 		g_test_fail();
 		return;
 	}
+	marquise_shutdown(ctx);
 }
 
 int main(int argc, char **argv) {
