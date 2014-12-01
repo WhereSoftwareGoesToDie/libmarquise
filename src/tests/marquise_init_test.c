@@ -96,5 +96,6 @@ int main(int argc, char **argv) {
 	g_test_add_func("/marquise_init/init_no_dir", test_init_no_dir);
 	g_test_add_func("/marquise_init/lock_dir", test_lock_dir);
 	g_test_add_func("/marquise_init/lock_dir_twice", test_lock_dir_twice);
+	g_test_add_func("/marquise_init/disable_namespace_lock", test_disable_namespace_lock);
 	return g_test_run();
 }
