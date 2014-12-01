@@ -70,7 +70,7 @@ void test_lock_dir_twice() {
 
 void test_disable_namespace_lock() {
 	setenv("MARQUISE_LOCK_DIR", "/tmp", 1);
-	setenv("DISABLE_NAMESPACE_LOCK", 0, 1);
+	setenv("DISABLE_NAMESPACE_LOCK", "1", 1);
 
 	// Make two instances, but disable the namespace lock. This should be successful
 	marquise_ctx *ctx = marquise_init("marquisetest6");
@@ -96,5 +96,6 @@ int main(int argc, char **argv) {
 	g_test_add_func("/marquise_init/init_no_dir", test_init_no_dir);
 	g_test_add_func("/marquise_init/lock_dir", test_lock_dir);
 	g_test_add_func("/marquise_init/lock_dir_twice", test_lock_dir_twice);
+	g_test_add_func("/marquise_init/disable_namespace_lock", test_disable_namespace_lock);
 	return g_test_run();
 }
