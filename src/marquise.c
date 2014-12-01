@@ -313,13 +313,19 @@ marquise_ctx *marquise_init(char *marquise_namespace)
 	}
 
 	/* Create the lock for this namespace */
-	const int envvar_disable_namespace_lock = (int)getenv("DISABLE_NAMESPACE_LOCK");
-	const int default_disable_namespace_lock = DISABLE_NAMESPACE_LOCK;
-	const int disable_namespace_lock =
-		(envvar_disable_namespace_lock == NULL ? default_disable_namespace_lock : envvar_disable_namespace_lock);
+	int disable_namespace_lock = DISABLE_NAMESPACE_LOCK; /* Establish default value. */
+	const char* env_temp = getenv("DISABLE_NAMESPACE_LOCK");
+	if (env_temp != NULL) {
+		/* Assume that locking is being disabled, unless we see
+		 * specific indications otherwise. */
+		disable_namespace_lock = true;
+		if (env_temp[0] == '0') {
+			disable_namespace_lock = false;
+		}
+	}
 
-	if (disable_namespace_lock == 1) {
-		printf("DISABLE_NAMESPACE_LOCK invoked. This process will not lock on the namespace %s", ctx->marquise_namespace);
+	if (disable_namespace_lock == true) {
+		printf("DISABLE_NAMESPACE_LOCK invoked. This process will not lock on the namespace %s\n", ctx->marquise_namespace);
 	} else {
 		/* Lock the namespace so another process cannot access it */
 		const char *envvar_lock_prefix = getenv("MARQUISE_LOCK_DIR");
