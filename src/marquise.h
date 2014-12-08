@@ -18,6 +18,11 @@
 
 #define SPOOL_POINTS   0
 #define SPOOL_CONTENTS 1
+
+#ifndef g_test_fail
+#define g_test_fail() g_assert(1==0)
+#endif
+
 typedef int spool_type;
 
 typedef struct {
