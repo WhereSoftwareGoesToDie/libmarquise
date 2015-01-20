@@ -47,4 +47,3 @@ There are source packages available for Centos/RHEL and Debian
 
 [0]: https://github.com/anchor/vaultaire
 [1]: https://github.com/anchor/packages
-
