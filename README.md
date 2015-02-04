@@ -3,9 +3,9 @@ libmarquise
 
 libmarquise is a small C library for writing data frames to
 [vaultaire][0]. It writes frames to a spool file which is then read by
-the Marquise daemon.
+the [Marquise](https://github.com/anchor/marquise) daemon.
 
-building
+Building
 ========
 
 	autoreconf -i
@@ -13,7 +13,7 @@ building
 	make
 	sudo make install
 
-bindings
+Bindings
 ========
 
  - Python: https://github.com/anchor/pymarquise
@@ -26,21 +26,20 @@ The following bindings have not been updated for Vaultaire v2:
 In addition, the reference implementation of the Marquise interface is in
 Haskell: https://github.com/anchor/marquise
 
-environment variables
+Environment variables
 ========
 
-MARQUISE_SPOOL_DIR
-  default: /var/spool/marquise. The location of the spool directory structure
+ - `MARQUISE_SPOOL_DIR` (`/var/spool/marquise`). The location of the
+   spool base directory.
+ - `DISABLE_NAMESPACE_LOCK` (`0`). If enabled, multiple instances of
+   this library are allowed to access the same spool file/contents.
+ - `MARQUISE_LOCK_DIR` (`/var/run/marquise`). The location of the lock
+   files to ensure no two instances of marquise access the same
+   spool/contents files. Has no effect if `DISABLE_NAMESPACE_LOCK` is
+   set to `1`.
 
-MARQUISE_LOCK_DIR
-  default: /var/run/marquise. The location of the lock files to ensure no two
-  instances of marquise access the same spool/contents files
 
-DISABLE_NAMESPACE_LOCK
-  default: 0 (false). If enabled, multiple instances of this library are
-  allowed to access the same spool file/contents.
-
-packages
+Packages
 ========
 
 There are source packages available for Centos/RHEL and Debian
@@ -48,4 +47,3 @@ There are source packages available for Centos/RHEL and Debian
 
 [0]: https://github.com/anchor/vaultaire
 [1]: https://github.com/anchor/packages
-
